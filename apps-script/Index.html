@@ -33,26 +33,41 @@
     }
     #jump-wrap {
       bottom: calc(1.25rem + env(safe-area-inset-bottom));
-      right: calc(1.25rem + env(safe-area-inset-right));
+      right: calc(1rem + env(safe-area-inset-right));
     }
-    #canvas-container:active {
-      cursor: grabbing;
+    #slide-wrap {
+      bottom: calc(1.25rem + env(safe-area-inset-bottom));
+      left: calc(1rem + env(safe-area-inset-left));
     }
+    #canvas-container:active { cursor: grabbing; }
+    .action-btn {
+      display: flex; align-items: center; gap: 0.4rem;
+      padding: 0.95rem 1.5rem; border-radius: 1rem; border-width: 1px;
+      font-weight: 900; font-size: 1.05rem; user-select: none; -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent; touch-action: none; transition: transform .08s;
+    }
+    .action-btn:active { transform: translateY(4px) scale(0.96); }
+    .hud-box { background: rgba(15,23,42,.8); backdrop-filter: blur(6px); border: 1px solid rgba(51,65,85,.7); border-radius: .75rem; padding: .3rem .65rem; box-shadow: 0 4px 12px rgba(0,0,0,.25); }
+    .hud-label { font-size: 10px; color: #94a3b8; font-weight: 600; line-height: 1.1; }
+    .hud-num { font-size: 1.05rem; font-weight: 900; font-family: ui-monospace, Menlo, monospace; line-height: 1.2; }
+    .rec-box { background: rgba(30,41,59,.8); border: 1px solid rgba(51,65,85,.6); border-radius: .75rem; padding: .5rem .4rem; }
+    .rec-label { font-size: 11px; color: #94a3b8; }
+    .rec-num { font-size: 1.05rem; font-weight: 900; font-family: ui-monospace, Menlo, monospace; }
+    .kbd { padding: 0 .35rem; border-radius: .25rem; background: #334155; color: #fff; font-family: ui-monospace, monospace; }
   </style>
 </head>
 <body class="flex flex-col">
   <!-- Top Control Bar -->
-  <header class="z-20 bg-slate-900/90 backdrop-blur border-b border-slate-800 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2.5 shrink-0">
+  <header class="z-20 bg-slate-900/90 backdrop-blur border-b border-slate-800 px-3 sm:px-4 py-2 flex flex-wrap items-center justify-between gap-2 shrink-0">
     <div class="flex items-center gap-2.5">
       <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 font-bold text-xs">3D</span>
       <div>
         <h1 class="text-sm sm:text-base font-semibold text-white leading-tight">馬拉松跑者 3D 跳躍閃避</h1>
-        <p class="hidden sm:block text-xs text-slate-400">實況野球 Q 版風格 · 閃避賽道障礙物</p>
+        <p class="hidden sm:block text-xs text-slate-400">實況野球 Q 版風格 · 挑戰 42.195K 全馬</p>
       </div>
     </div>
 
-    <div class="flex flex-wrap items-center gap-2">
-      <!-- Camera Presets -->
+    <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
       <div class="inline-flex rounded-lg bg-slate-800 p-0.5 border border-slate-700 text-xs">
         <button data-cam="angle" class="cam-btn px-2.5 py-1.5 rounded-md bg-sky-500 text-white font-medium transition">45° 立體</button>
         <button data-cam="front" class="cam-btn px-2.5 py-1.5 rounded-md text-slate-300 hover:text-white font-medium transition">正面</button>
@@ -60,65 +75,100 @@
         <button data-cam="bib" class="cam-btn px-2.5 py-1.5 rounded-md text-slate-300 hover:text-white font-medium transition">號碼布特寫</button>
       </div>
 
-      <!-- Speed Control -->
-      <div class="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1 text-xs">
+      <div class="flex items-center gap-1.5 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-xs">
         <span class="text-slate-400">配速</span>
-        <input id="speed-slider" type="range" min="0.6" max="2.2" step="0.1" value="1.0" class="w-16 accent-sky-400 cursor-pointer" />
+        <input id="speed-slider" type="range" min="0.6" max="2.2" step="0.1" value="1.0" class="w-14 sm:w-16 accent-sky-400 cursor-pointer" />
         <span id="speed-val" class="font-mono text-slate-200 w-7">1.0x</span>
       </div>
 
-      <!-- Play / Pause -->
-      <button id="btn-play" class="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-xs font-medium transition flex items-center gap-1.5">
-        <span id="play-dot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-        <span id="play-label">跑步中</span>
+      <button id="btn-play" class="px-2.5 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-xs font-medium transition flex items-center gap-1.5">
+        <span id="play-dot" class="w-2 h-2 rounded-full bg-slate-400"></span>
+        <span id="play-label">準備</span>
       </button>
 
-      <!-- Mute Toggle -->
-      <button id="btn-mute" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium transition" title="音效開關">🔊 音效</button>
-
-      <!-- Wireframe Toggle -->
+      <button id="btn-music" class="px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium transition" title="背景音樂開關">🎵<span class="hidden sm:inline"> 音樂</span></button>
+      <button id="btn-sfx" class="px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium transition" title="音效開關">🔊<span class="hidden sm:inline"> 音效</span></button>
       <button id="btn-wire" class="hidden sm:inline-block px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium transition">線框模式</button>
     </div>
   </header>
 
   <!-- 3D Viewport -->
   <div id="canvas-container" class="flex-1 relative">
-    <!-- Score HUD (Top Left) -->
-    <div class="pointer-events-none absolute top-4 left-4 z-10 flex items-center gap-3">
-      <div class="bg-slate-900/80 backdrop-blur border border-slate-700/70 rounded-xl px-3.5 py-2 shadow-lg">
-        <div class="text-[11px] text-slate-400 font-medium">目前分數</div>
-        <div id="score-val" class="text-xl font-black text-amber-300 font-mono leading-tight">0</div>
+    <!-- HUD -->
+    <div class="pointer-events-none absolute top-2.5 left-2.5 right-2.5 z-10 flex flex-col gap-1.5">
+      <div class="flex items-stretch gap-1.5 flex-wrap">
+        <div class="hud-box">
+          <div class="hud-label">分數</div>
+          <div id="score-val" class="hud-num text-amber-300">0</div>
+        </div>
+        <div class="hud-box">
+          <div class="hud-label">距離</div>
+          <div class="hud-num text-sky-300"><span id="dist-val">0.00</span><span class="text-xs text-slate-400"> / 42.195K</span></div>
+        </div>
+        <div class="hud-box">
+          <div class="hud-label">比賽時間</div>
+          <div id="time-val" class="hud-num text-emerald-300">0:00:00</div>
+        </div>
+        <div class="hud-box hidden sm:block">
+          <div class="hud-label">最高分</div>
+          <div id="best-val" class="hud-num text-slate-200">0</div>
+        </div>
       </div>
-      <div class="bg-slate-900/80 backdrop-blur border border-slate-700/70 rounded-xl px-3.5 py-2 shadow-lg">
-        <div class="text-[11px] text-slate-400 font-medium">最高紀錄</div>
-        <div id="best-val" class="text-xl font-black text-emerald-300 font-mono leading-tight">0</div>
+      <div class="flex items-center gap-1.5 flex-wrap">
+        <div class="rounded-full bg-slate-900/80 border border-rose-500/40 px-2.5 py-0.5 text-xs font-bold text-rose-300"><span id="level-val">Lv.1</span> · <span id="stage-val">起跑區</span></div>
+        <div id="slope-badge" class="hidden rounded-full px-2.5 py-0.5 text-xs font-bold"></div>
+        <div id="combo-badge" class="opacity-0 transition-opacity duration-200 rounded-full bg-orange-500/90 text-slate-950 px-2.5 py-0.5 text-xs font-black">×1.0 COMBO</div>
+        <div id="shield-badge" class="hidden rounded-full bg-sky-400/90 text-slate-950 px-2.5 py-0.5 text-xs font-black">🛡️ 護盾</div>
       </div>
-      <div class="bg-slate-900/80 backdrop-blur border border-slate-700/70 rounded-xl px-3.5 py-2 shadow-lg hidden sm:block">
-        <div class="text-[11px] text-slate-400 font-medium">已閃避</div>
-        <div id="dodge-val" class="text-xl font-black text-sky-300 font-mono leading-tight">0</div>
+      <div class="flex justify-center">
+        <div id="bonus-popup" class="opacity-0 transition-all duration-300 bg-cyan-500/90 text-slate-950 font-black text-sm px-3 py-1 rounded-full shadow-lg">+100</div>
       </div>
-      <div class="bg-slate-900/80 backdrop-blur border border-slate-700/70 rounded-xl px-3.5 py-2 shadow-lg hidden sm:block">
-        <div class="text-[11px] text-slate-400 font-medium">補給品</div>
-        <div id="supply-val" class="text-xl font-black text-cyan-300 font-mono leading-tight">0</div>
-      </div>
-      <div class="bg-slate-900/80 backdrop-blur border border-rose-500/40 rounded-xl px-3.5 py-2 shadow-lg">
-        <div class="text-[11px] text-rose-300 font-medium">難度等級</div>
-        <div id="level-val" class="text-xl font-black text-rose-400 font-mono leading-tight">Lv.1</div>
-      </div>
-      <div id="bonus-popup" class="opacity-0 transition-all duration-300 bg-cyan-500/90 text-slate-950 font-black text-sm px-3 py-1 rounded-full shadow-lg">+100 補給!</div>
     </div>
 
-    <!-- Bottom Hint -->
-    <div class="pointer-events-none absolute bottom-5 left-4 z-10 bg-slate-900/75 backdrop-blur border border-slate-700/70 rounded-xl px-3 py-2 text-xs text-slate-300 hidden sm:block">
-      按 <kbd class="px-1.5 py-0.5 rounded bg-slate-700 text-white font-mono">空白鍵</kbd> 或右側按鈕跳躍（支援二段跳）· 難度隨分數持續提升
+    <!-- Center announcement -->
+    <div class="pointer-events-none absolute inset-x-0 top-[32%] z-10 flex justify-center px-4">
+      <div id="announce" class="opacity-0 scale-90 transition-all duration-300 text-center">
+        <div id="announce-title" class="text-2xl sm:text-4xl font-black text-white drop-shadow-[0_3px_0_rgba(15,23,42,0.85)]"></div>
+        <div id="announce-sub" class="mt-1 text-sm sm:text-base font-bold text-amber-200 drop-shadow-[0_2px_0_rgba(15,23,42,0.85)]"></div>
+      </div>
     </div>
 
-    <!-- Dedicated Jump Button (Bottom Right / Center on mobile) -->
-    <div id="jump-wrap" class="absolute z-20 flex items-center gap-2">
-      <button id="btn-jump" class="px-7 py-4 rounded-2xl bg-gradient-to-b from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 active:scale-95 text-slate-950 font-black text-base sm:text-lg shadow-[0_6px_0_#b45309,0_12px_24px_rgba(0,0,0,0.45)] active:shadow-[0_2px_0_#b45309] active:translate-y-1 transition-all select-none flex items-center gap-2 border border-amber-200/60">
-        <span>⬆️</span>
-        <span>跳躍 JUMP</span>
+    <!-- Bottom hint (desktop) -->
+    <div class="pointer-events-none absolute bottom-5 left-1/2 -translate-x-1/2 z-10 bg-slate-900/75 backdrop-blur border border-slate-700/70 rounded-xl px-3 py-2 text-xs text-slate-300 hidden md:block">
+      <kbd class="kbd">空白鍵</kbd>/<kbd class="kbd">↑</kbd> 跳躍（可二段跳）· <kbd class="kbd">↓</kbd>/<kbd class="kbd">S</kbd> 滑行 · 拖曳畫面旋轉視角
+    </div>
+
+    <!-- Action buttons -->
+    <div id="slide-wrap" class="absolute z-20">
+      <button id="btn-slide" class="action-btn bg-gradient-to-b from-sky-400 to-blue-600 text-white shadow-[0_6px_0_#1e3a8a,0_12px_24px_rgba(0,0,0,0.45)] active:shadow-[0_2px_0_#1e3a8a] border-sky-200/60">
+        <span>⬇️</span><span>滑行</span>
       </button>
+    </div>
+    <div id="jump-wrap" class="absolute z-20">
+      <button id="btn-jump" class="action-btn bg-gradient-to-b from-amber-400 to-orange-500 text-slate-950 shadow-[0_6px_0_#b45309,0_12px_24px_rgba(0,0,0,0.45)] active:shadow-[0_2px_0_#b45309] border-amber-200/60">
+        <span>⬆️</span><span>跳躍</span>
+      </button>
+    </div>
+
+    <!-- Start Overlay -->
+    <div id="start-overlay" class="absolute inset-0 z-30 bg-slate-950/55 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="bg-slate-900/95 border border-slate-700 rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl">
+        <div class="text-4xl mb-2">🏃‍♂️</div>
+        <h2 class="text-2xl font-black text-white">馬拉松跑者</h2>
+        <p class="text-sm text-emerald-300 font-bold mb-3">挑戰 42.195K 全程馬拉松</p>
+        <ul class="text-left text-xs text-slate-300 space-y-1 mb-4 bg-slate-800/70 rounded-xl p-3 border border-slate-700/60">
+          <li>⬆️ <b>跳躍</b>越過三角錐、欄架（可二段跳）</li>
+          <li>⬇️ <b>滑行</b>鑽過充氣拱門、加油布條</li>
+          <li>🛡️ 護盾可擋一次碰撞 · 🔥 連續閃避倍率最高 ×3</li>
+          <li>⛰️ 上坡變慢、下坡變快 · 每 10K 有補給站</li>
+        </ul>
+        <div class="grid grid-cols-3 gap-2 mb-4">
+          <div class="rec-box"><div class="rec-label">最高分</div><div id="rec-score" class="rec-num text-amber-300">0</div></div>
+          <div class="rec-box"><div class="rec-label">最遠距離</div><div id="rec-dist" class="rec-num text-sky-300">0K</div></div>
+          <div class="rec-box"><div class="rec-label">最佳完賽</div><div id="rec-time" class="rec-num text-emerald-300">—</div></div>
+        </div>
+        <button id="btn-start" class="w-full py-3.5 rounded-xl bg-gradient-to-b from-emerald-400 to-emerald-600 hover:from-emerald-300 text-slate-950 font-black text-lg transition shadow-[0_5px_0_#065f46] active:translate-y-1 active:shadow-[0_1px_0_#065f46]">▶ 開始跑</button>
+      </div>
     </div>
 
     <!-- Game Over Overlay -->
@@ -126,147 +176,319 @@
       <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl">
         <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-rose-500/20 text-rose-400 text-2xl mb-3">💥</div>
         <h2 class="text-xl font-bold text-white mb-1">撞到障礙物了！</h2>
-        <p class="text-xs text-slate-400 mb-4">#517 HSINHUNG YEH 的馬拉松挑戰結束</p>
-        <div class="grid grid-cols-3 gap-2.5 mb-5">
-          <div class="bg-slate-800/80 rounded-xl p-3 border border-slate-700/60">
-            <div class="text-xs text-slate-400">本次分數</div>
-            <div id="final-score" class="text-xl font-black text-amber-300 font-mono">0</div>
-          </div>
-          <div class="bg-slate-800/80 rounded-xl p-3 border border-slate-700/60">
-            <div class="text-xs text-slate-400">閃避障礙</div>
-            <div id="final-dodged" class="text-xl font-black text-sky-300 font-mono">0</div>
-          </div>
-          <div class="bg-slate-800/80 rounded-xl p-3 border border-slate-700/60">
-            <div class="text-xs text-slate-400">取得補給</div>
-            <div id="final-supply" class="text-xl font-black text-cyan-300 font-mono">0</div>
-          </div>
+        <p id="over-sub" class="text-xs text-slate-400 mb-4">#517 HSINHUNG YEH 的馬拉松挑戰結束</p>
+        <div class="grid grid-cols-3 gap-2 mb-2">
+          <div class="rec-box"><div class="rec-label">本次分數</div><div id="final-score" class="rec-num text-amber-300">0</div></div>
+          <div class="rec-box"><div class="rec-label">距離</div><div id="final-dist" class="rec-num text-sky-300">0K</div></div>
+          <div class="rec-box"><div class="rec-label">比賽時間</div><div id="final-time" class="rec-num text-emerald-300">0:00</div></div>
         </div>
-        <button id="btn-restart" class="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-98 text-slate-950 font-bold text-sm transition shadow-lg">
-          🔄 再跑一次
-        </button>
+        <div class="grid grid-cols-3 gap-2 mb-3">
+          <div class="rec-box"><div class="rec-label">閃避</div><div id="final-dodged" class="rec-num text-slate-200">0</div></div>
+          <div class="rec-box"><div class="rec-label">補給</div><div id="final-supply" class="rec-num text-cyan-300">0</div></div>
+          <div class="rec-box"><div class="rec-label">最高連擊</div><div id="final-combo" class="rec-num text-orange-300">0</div></div>
+        </div>
+        <p id="over-records" class="text-xs font-bold text-amber-300 mb-4 min-h-[1rem]"></p>
+        <button id="btn-restart" class="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm transition shadow-lg">🔄 再跑一次</button>
+      </div>
+    </div>
+
+    <!-- Finish Overlay -->
+    <div id="finish-overlay" class="hidden absolute inset-0 z-30 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="bg-gradient-to-b from-amber-500/20 to-slate-900 bg-slate-900 border border-amber-400/50 rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl">
+        <div class="text-4xl mb-1">🏅</div>
+        <h2 class="text-2xl font-black text-amber-300">全馬完賽！</h2>
+        <p class="text-xs text-slate-300 mb-3">#517 HSINHUNG YEH · 42.195K</p>
+        <div class="rec-box mb-2"><div class="rec-label">完賽時間</div><div id="finish-time" class="text-3xl font-black font-mono text-emerald-300">0:00:00</div></div>
+        <div class="grid grid-cols-2 gap-2 mb-2">
+          <div class="rec-box"><div class="rec-label">分數</div><div id="finish-score" class="rec-num text-amber-300">0</div></div>
+          <div class="rec-box"><div class="rec-label">平均配速</div><div id="finish-pace" class="rec-num text-sky-300">0:00/km</div></div>
+        </div>
+        <p id="finish-records" class="text-xs font-bold text-amber-300 mb-4 min-h-[1rem]"></p>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="btn-ultra" class="py-3 rounded-xl bg-gradient-to-b from-fuchsia-500 to-purple-600 text-white font-black text-sm shadow-lg">🔥 繼續跑超馬</button>
+          <button id="btn-finish-restart" class="py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm shadow-lg">🔄 再跑一次</button>
+        </div>
       </div>
     </div>
   </div>
 
   <script>
-    const container = document.getElementById('canvas-container');
-    const speedSlider = document.getElementById('speed-slider');
-    const speedVal = document.getElementById('speed-val');
-    const btnPlay = document.getElementById('btn-play');
-    const playDot = document.getElementById('play-dot');
-    const playLabel = document.getElementById('play-label');
-    const btnMute = document.getElementById('btn-mute');
-    const btnWire = document.getElementById('btn-wire');
-    const btnJump = document.getElementById('btn-jump');
-    const btnRestart = document.getElementById('btn-restart');
-    const gameoverOverlay = document.getElementById('gameover-overlay');
-    const scoreValEl = document.getElementById('score-val');
-    const bestValEl = document.getElementById('best-val');
-    const dodgeValEl = document.getElementById('dodge-val');
-    const supplyValEl = document.getElementById('supply-val');
-    const bonusPopupEl = document.getElementById('bonus-popup');
-    const finalSupplyEl = document.getElementById('final-supply');
-    const levelValEl = document.getElementById('level-val');
-    const finalScoreEl = document.getElementById('final-score');
-    const finalDodgedEl = document.getElementById('final-dodged');
+    // ===== DOM =====
+    const $ = (id) => document.getElementById(id);
+    const container = $('canvas-container');
+    const speedSlider = $('speed-slider');
+    const speedVal = $('speed-val');
+    const btnPlay = $('btn-play');
+    const playDot = $('play-dot');
+    const playLabel = $('play-label');
+    const btnMusic = $('btn-music');
+    const btnSfx = $('btn-sfx');
+    const btnWire = $('btn-wire');
+    const btnJump = $('btn-jump');
+    const btnSlide = $('btn-slide');
+    const btnStart = $('btn-start');
+    const btnRestart = $('btn-restart');
+    const btnUltra = $('btn-ultra');
+    const btnFinishRestart = $('btn-finish-restart');
+    const startOverlay = $('start-overlay');
+    const gameoverOverlay = $('gameover-overlay');
+    const finishOverlay = $('finish-overlay');
+    const scoreValEl = $('score-val');
+    const bestValEl = $('best-val');
+    const distValEl = $('dist-val');
+    const timeValEl = $('time-val');
+    const levelValEl = $('level-val');
+    const stageValEl = $('stage-val');
+    const slopeBadge = $('slope-badge');
+    const comboBadge = $('combo-badge');
+    const shieldBadge = $('shield-badge');
+    const bonusPopupEl = $('bonus-popup');
+    const announceEl = $('announce');
+    const announceTitle = $('announce-title');
+    const announceSub = $('announce-sub');
     const camBtns = document.querySelectorAll('.cam-btn');
 
-    let isPlaying = true;
-    let isGameOver = false;
+    // ===== Settings =====
     let isWireframe = false;
-    let isMuted = false;
+    let isMusicOn = true;
+    let isSfxOn = true;
     let animSpeed = 1.0;
 
-    // Game State
-    let score = 0;
-    let bestScore = 0;
-    let dodgedCount = 0;
-    let supplyCount = 0;
-    let currentLevel = 1;
-    try {
-      bestScore = parseInt(localStorage.getItem('marathon_517_best') || '0', 10) || 0;
-    } catch {}
-    bestValEl.textContent = bestScore;
-
-    // Jump Physics State
-    let jumpY = 0;
-    let jumpVel = 0;
-    let isGrounded = true;
-    let jumpCount = 0;
-    const MAX_JUMPS = 2;
-    const JUMP_FORCE = 9.4;
-    const GRAVITY = -25.0;
-
-    // Web Audio API Synthesized SFX (no external audio files)
-    let audioCtx = null;
-    function ensureAudio() {
-      if (!audioCtx && (window.AudioContext || window.webkitAudioContext)) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      }
-      if (audioCtx && audioCtx.state === 'suspended') {
-        audioCtx.resume().catch(() => {});
-      }
+    // ===== Records =====
+    const REC = { score: 'marathon_517_best', dist: 'marathon_517_best_dist', time: 'marathon_517_best_time' };
+    function loadRec(key, def) {
+      try { const v = parseFloat(localStorage.getItem(key)); return isNaN(v) ? def : v; } catch { return def; }
     }
+    function saveRec(key, v) { try { localStorage.setItem(key, String(v)); } catch {} }
+    let bestScore = loadRec(REC.score, 0);
+    let bestDist = loadRec(REC.dist, 0);
+    let bestTime = loadRec(REC.time, 0); // 0 = none
+
+    function fmtTime(sec) {
+      sec = Math.max(0, Math.floor(sec));
+      const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+      return h + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+    }
+    function fmtPace(secPerKm) {
+      secPerKm = Math.max(0, Math.round(secPerKm));
+      return Math.floor(secPerKm / 60) + ':' + String(secPerKm % 60).padStart(2, '0') + '/km';
+    }
+    function refreshRecordsUI() {
+      bestValEl.textContent = Math.floor(bestScore);
+      $('rec-score').textContent = Math.floor(bestScore);
+      $('rec-dist').textContent = bestDist.toFixed(1) + 'K';
+      $('rec-time').textContent = bestTime > 0 ? fmtTime(bestTime) : '—';
+    }
+    refreshRecordsUI();
+
+    // ===== Audio: shared context =====
+    let audioCtx = null, masterGain = null, musicGain = null, sfxGain = null, noiseBuf = null, pulseWave = null, pulseWave2 = null;
+    function ensureAudio() {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!audioCtx && AC) {
+        audioCtx = new AC();
+        masterGain = audioCtx.createGain(); masterGain.gain.value = 0.9; masterGain.connect(audioCtx.destination);
+        musicGain = audioCtx.createGain(); musicGain.gain.value = isMusicOn ? 0.30 : 0; musicGain.connect(masterGain);
+        sfxGain = audioCtx.createGain(); sfxGain.gain.value = 1.0; sfxGain.connect(masterGain);
+        noiseBuf = audioCtx.createBuffer(1, audioCtx.sampleRate, audioCtx.sampleRate);
+        const data = noiseBuf.getChannelData(0);
+        for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+        pulseWave = makePulse(0.25);
+        pulseWave2 = makePulse(0.125);
+      }
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+    }
+    function makePulse(duty) {
+      const n = 32, real = new Float32Array(n), imag = new Float32Array(n);
+      for (let k = 1; k < n; k++) real[k] = (2 / (k * Math.PI)) * Math.sin(k * Math.PI * duty);
+      return audioCtx.createPeriodicWave(real, imag);
+    }
+    const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
+
+    function tone(dest, wave, freq, t, dur, vol, slideTo) {
+      const osc = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      if (typeof wave === 'string') osc.type = wave; else osc.setPeriodicWave(wave);
+      osc.frequency.setValueAtTime(freq, t);
+      if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(vol, t + 0.006);
+      g.gain.setValueAtTime(vol * 0.8, t + Math.max(0.01, dur * 0.6));
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      osc.connect(g); g.connect(dest);
+      osc.start(t); osc.stop(t + dur + 0.02);
+    }
+    function noise(dest, t, dur, vol, filterType, freq) {
+      const src = audioCtx.createBufferSource();
+      src.buffer = noiseBuf;
+      const f = audioCtx.createBiquadFilter();
+      f.type = filterType; f.frequency.value = freq;
+      const g = audioCtx.createGain();
+      g.gain.setValueAtTime(vol, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      src.connect(f); f.connect(g); g.connect(dest);
+      src.start(t, Math.random() * 0.5); src.stop(t + dur + 0.02);
+    }
+
+    // ===== Sound effects =====
     function playSfx(type) {
-      if (isMuted) return;
+      if (!isSfxOn) return;
       ensureAudio();
       if (!audioCtx) return;
-      const now = audioCtx.currentTime;
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-
-      if (type === 'jump') {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(280, now);
-        osc.frequency.exponentialRampToValueAtTime(580, now + 0.14);
-        gain.gain.setValueAtTime(0.16, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
-        osc.start(now);
-        osc.stop(now + 0.16);
-      } else if (type === 'dodge') {
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(523.25, now);
-        osc.frequency.setValueAtTime(659.25, now + 0.06);
-        gain.gain.setValueAtTime(0.12, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-        osc.start(now);
-        osc.stop(now + 0.15);
-      } else if (type === 'levelup') {
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(523.25, now);
-        osc.frequency.setValueAtTime(659.25, now + 0.08);
-        osc.frequency.setValueAtTime(783.99, now + 0.16);
-        osc.frequency.setValueAtTime(1046.5, now + 0.24);
-        gain.gain.setValueAtTime(0.18, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.36);
-        osc.start(now);
-        osc.stop(now + 0.36);
-      } else if (type === 'supply') {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(660, now);
-        osc.frequency.setValueAtTime(880, now + 0.06);
-        osc.frequency.setValueAtTime(1174.66, now + 0.12);
-        gain.gain.setValueAtTime(0.16, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
-        osc.start(now);
-        osc.stop(now + 0.24);
-      } else if (type === 'hit') {
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(190, now);
-        osc.frequency.exponentialRampToValueAtTime(65, now + 0.28);
-        gain.gain.setValueAtTime(0.22, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.30);
-        osc.start(now);
-        osc.stop(now + 0.30);
+      const t = audioCtx.currentTime + 0.005, d = sfxGain;
+      switch (type) {
+        case 'jump': tone(d, pulseWave, 280, t, 0.16, 0.16, 600); break;
+        case 'slide': noise(d, t, 0.32, 0.22, 'bandpass', 900); tone(d, 'triangle', 300, t, 0.2, 0.12, 120); break;
+        case 'dodge': tone(d, 'triangle', 523.25, t, 0.07, 0.12); tone(d, 'triangle', 659.25, t + 0.06, 0.09, 0.12); break;
+        case 'supply': [660, 880, 1174.66].forEach((f, i) => tone(d, 'sine', f, t + i * 0.06, 0.1, 0.15)); break;
+        case 'levelup': [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(d, pulseWave, f, t + i * 0.08, 0.12, 0.12)); break;
+        case 'combo': [784, 988, 1175, 1568].forEach((f, i) => tone(d, pulseWave2, f, t + i * 0.05, 0.08, 0.1)); break;
+        case 'shield': [523.25, 783.99, 1046.5, 1567.98].forEach((f, i) => tone(d, 'triangle', f, t + i * 0.07, 0.14, 0.16)); break;
+        case 'shieldbreak': noise(d, t, 0.35, 0.3, 'highpass', 2500); tone(d, 'square', 900, t, 0.3, 0.08, 200); break;
+        case 'cheer': noise(d, t, 0.6, 0.12, 'bandpass', 1400); [659, 784, 988].forEach((f, i) => tone(d, pulseWave, f, t + 0.05 + i * 0.07, 0.1, 0.08)); break;
+        case 'km': tone(d, 'triangle', 1318.5, t, 0.08, 0.1); tone(d, 'triangle', 1760, t + 0.09, 0.12, 0.1); break;
+        case 'warn': tone(d, 'square', 880, t, 0.1, 0.06); tone(d, 'square', 880, t + 0.16, 0.1, 0.06); break;
+        case 'hit': tone(d, 'sawtooth', 190, t, 0.3, 0.22, 65); noise(d, t, 0.25, 0.2, 'lowpass', 800); break;
       }
     }
+
+    // ===== 8-bit Background Music (original procedural chiptune) =====
+    // Motif strings: 16 steps per bar. '0'-'9' = scale steps above the chord root,
+    // 'a' = -1, 'b' = -2, 'c' = -3, '.' = rest, '-' = hold previous note.
+    const SCALES = {
+      major: [0, 2, 4, 5, 7, 9, 11],
+      minor: [0, 2, 3, 5, 7, 8, 10],
+      harm:  [0, 2, 3, 5, 7, 8, 11]
+    };
+    const DRUMS = {
+      light: { k: 'x.......x.......', s: '....x.......x...', h: '..x...x...x...x.' },
+      basic: { k: 'x.......x.x.....', s: '....x.......x...', h: 'x.x.x.x.x.x.x.x.' },
+      drive: { k: 'x...x...x...x...', s: '....x.......x..x', h: 'xxxxxxxxxxxxxxxx' },
+      sparse:{ k: 'x...............', s: '........x.......', h: '....x.......x...' }
+    };
+    const SONGS = [
+      { name: '起跑區',   root: 60, scale: 'major', bpm: 150, prog: [0, 4, 5, 3], A: '0.2.4.7.4-2-0---', A2: '0.2.4.7.9-7-4---', B: '7.6.4.2.4---2.1.', bass: '0.0.4.0.0.0.4.7.', drums: 'basic', arp: true },
+      { name: '河濱',     root: 65, scale: 'major', bpm: 140, prog: [0, 5, 3, 4], A: '4--2-0-2-4--7---', A2: '4--2-0-2-4--2---', B: '5-4-2-0-1-2-4---', bass: '0...4...0...4...', drums: 'light', arp: true },
+      { name: '市區',     root: 57, scale: 'minor', bpm: 156, prog: [0, 5, 6, 4], A: '0.0..2.4.0.b.0..', A2: '0.0..2.4.7.6.4..', B: '4.4.2.0.2.4.7.4.', bass: '0.07.0.0.07.0.4.', drums: 'drive', arp: false },
+      { name: '黃昏',     root: 63, scale: 'major', bpm: 132, prog: [0, 5, 3, 4], A: '4---2---0-2-4---', A2: '4---5---4-2-0---', B: '5---4---2-1-0---', bass: '0.......4.......', drums: 'sparse', arp: true },
+      { name: '夜晚',     root: 62, scale: 'minor', bpm: 144, prog: [0, 6, 5, 4], A: '0..2..4.7..4..2.', A2: '0..2..4.9..7..4.', B: '0..b..c.0..2..4.', bass: '0..0..0.0..0..4.', drums: 'basic', arp: true },
+      { name: '撞牆期',   root: 64, scale: 'harm',  bpm: 160, prog: [0, 5, 3, 4], A: '0.1.0.c.0.1.2.4.', A2: '0.1.0.c.4.2.1.0.', B: '4.5.4.2.1.0.c.0.', bass: '0.0.0.0.0.0.0.0.', drums: 'drive', arp: false },
+      { name: '終點衝刺', root: 55, scale: 'major', bpm: 168, prog: [0, 3, 4, 4], A: '0.0.0.4-2.4-7---', A2: '0.0.0.4-5.4-2---', B: '7.7.6.4.5.4.2.1.', bass: '0707070707070707', drums: 'drive', arp: true },
+      { name: '超馬',     root: 60, scale: 'minor', bpm: 172, prog: [0, 5, 6, 4], A: '0.2.4.2.0.2.4.7.', A2: '0.2.4.2.7.6.4.2.', B: '7.6.4.2.1.2.4.c.', bass: '0707070707070707', drums: 'drive', arp: true }
+    ];
+    function stepVal(ch) {
+      if (ch >= '0' && ch <= '9') return ch.charCodeAt(0) - 48;
+      if (ch === 'a') return -1; if (ch === 'b') return -2; if (ch === 'c') return -3;
+      return null;
+    }
+    function scaleMidi(song, deg) {
+      const sc = SCALES[song.scale], n = sc.length;
+      const oct = Math.floor(deg / n), idx = ((deg % n) + n) % n;
+      return song.root + sc[idx] + 12 * oct;
+    }
+
+    const Music = {
+      playing: false, timer: null, nextTime: 0, step: 0,
+      songIdx: 0, pendingIdx: null, tempoMul: 1,
+      start(idx) {
+        if (!isMusicOn) { this.songIdx = idx; return; }
+        ensureAudio(); if (!audioCtx) return;
+        this.stop();
+        this.songIdx = idx; this.pendingIdx = null; this.step = 0;
+        this.nextTime = audioCtx.currentTime + 0.08;
+        this.playing = true;
+        this.timer = setInterval(() => this.schedule(), 25);
+      },
+      stop() {
+        this.playing = false;
+        if (this.timer) clearInterval(this.timer);
+        this.timer = null;
+      },
+      queue(idx) {
+        if (idx === this.songIdx) return;
+        if (this.playing) this.pendingIdx = idx; else this.songIdx = idx;
+      },
+      schedule() {
+        if (!this.playing || !audioCtx) return;
+        while (this.nextTime < audioCtx.currentTime + 0.15) {
+          if (this.step % 16 === 0 && this.pendingIdx !== null) {
+            this.songIdx = this.pendingIdx; this.pendingIdx = null; this.step = 0;
+          }
+          const song = SONGS[this.songIdx];
+          const stepDur = 60 / (song.bpm * this.tempoMul) / 4;
+          this.playStep(song, this.step, this.nextTime, stepDur);
+          this.nextTime += stepDur;
+          this.step = (this.step + 1) % 64;
+        }
+      },
+      holdLen(str, i) { let n = 1; while (i + n < 16 && str[i + n] === '-') n++; return n; },
+      playStep(song, s, t, sd) {
+        const bar = Math.floor(s / 16), i = s % 16;
+        const chord = song.prog[bar];
+        const motif = bar === 3 ? song.B : (bar === 2 ? song.A2 : song.A);
+        const d = musicGain;
+        // Lead (25% pulse)
+        const lv = stepVal(motif[i]);
+        if (lv !== null) tone(d, pulseWave, mtof(scaleMidi(song, chord + lv) + 12), t, sd * this.holdLen(motif, i) * 0.92, 0.17);
+        // Bass (triangle)
+        const bv = stepVal(song.bass[i]);
+        if (bv !== null) tone(d, 'triangle', mtof(scaleMidi(song, chord + bv) - 12), t, sd * this.holdLen(song.bass, i) * 0.9, 0.32);
+        // Arpeggio (12.5% pulse, quiet)
+        if (song.arp) {
+          const tones = [0, 2, 4, 7];
+          tone(d, pulseWave2, mtof(scaleMidi(song, chord + tones[i % 4])), t, sd * 0.8, 0.05);
+        }
+        // Drums
+        const dr = DRUMS[song.drums];
+        if (dr.k[i] === 'x') tone(d, 'sine', 150, t, 0.12, 0.55, 45);
+        if (dr.s[i] === 'x') noise(d, t, 0.12, 0.32, 'bandpass', 1800);
+        if (dr.h[i] === 'x') noise(d, t, 0.03, 0.12, 'highpass', 7000);
+      },
+      jingle(kind) {
+        if (!isMusicOn) return;
+        ensureAudio(); if (!audioCtx) return;
+        this.stop();
+        const t0 = audioCtx.currentTime + 0.05, d = musicGain;
+        const seq = kind === 'finish'
+          ? [[67, 0.12], [72, 0.12], [76, 0.12], [79, 0.36], [76, 0.12], [79, 0.7]]
+          : [[71, 0.18], [70, 0.18], [69, 0.18], [68, 0.6]];
+        let t = t0;
+        seq.forEach(([m, dur]) => {
+          tone(d, pulseWave, mtof(m), t, dur * 0.95, 0.2);
+          tone(d, 'triangle', mtof(m - 24), t, dur * 0.95, 0.3);
+          t += dur;
+        });
+        if (kind === 'finish') {
+          [60, 64, 67, 72].forEach((m) => tone(d, pulseWave2, mtof(m), t - 0.7, 0.7, 0.07));
+          noise(d, t - 0.7, 0.5, 0.2, 'highpass', 5000);
+        }
+      }
+    };
+
+    function setMusicOn(on) {
+      isMusicOn = on;
+      btnMusic.innerHTML = (on ? '🎵' : '🚫') + '<span class="hidden sm:inline"> 音樂</span>';
+      btnMusic.classList.toggle('opacity-60', !on);
+      if (audioCtx) musicGain.gain.value = on ? 0.30 : 0;
+      if (on && phase === 'running') Music.start(Music.songIdx);
+      if (!on) Music.stop();
+    }
+    function setSfxOn(on) {
+      isSfxOn = on;
+      btnSfx.innerHTML = (on ? '🔊' : '🔇') + '<span class="hidden sm:inline"> 音效</span>';
+      btnSfx.classList.toggle('opacity-60', !on);
+    }
+
+    // ===== Game phase (declared early; used by audio toggles) =====
+    let phase = 'ready'; // ready | running | paused | over | finished
+
 
     // 1. Scene, Camera, Renderer
     const scene = new THREE.Scene();
     scene.background = new THREE.Color('#bde5f8');
     scene.fog = new THREE.FogExp2('#d8f0e4', 0.024);
+    const world = new THREE.Group(); // ground-level world (tilts on hills)
+    scene.add(world);
 
     const camera = new THREE.PerspectiveCamera(44, container.clientWidth / container.clientHeight, 0.1, 120);
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -522,7 +744,7 @@
     );
     roadMesh.rotation.x = -Math.PI / 2;
     roadMesh.receiveShadow = true;
-    scene.add(roadMesh);
+    world.add(roadMesh);
 
     const grassMat = regMat(new THREE.MeshStandardMaterial({ color: '#7da442', roughness: 0.95 }));
     [-1, 1].forEach((side) => {
@@ -530,7 +752,7 @@
       verge.rotation.x = -Math.PI / 2;
       verge.position.set(side * 13.25, 0.01, 0);
       verge.receiveShadow = true;
-      scene.add(verge);
+      world.add(verge);
     });
 
     // Fallen Yellow Leaves
@@ -543,7 +765,7 @@
       leaf.rotation.z = Math.random() * Math.PI;
       leaf.position.set((Math.random() - 0.5) * 6.4, 0.015, -18 + Math.random() * 26);
       leaf.scale.set(1.5, 0.6, 1);
-      scene.add(leaf);
+      world.add(leaf);
       roadLeaves.push(leaf);
     }
 
@@ -559,7 +781,7 @@
       treeGroup.add(cluster);
       bgTrees.push(cluster);
     }
-    scene.add(treeGroup);
+    world.add(treeGroup);
 
     // Swaying Silvergrass / Pampas Grass (芒草)
     const pampasClusters = [];
@@ -584,7 +806,7 @@
       }
       stalkGroup.add(plumeGroup);
       stalkGroup.rotation.set(tiltX, Math.random() * Math.PI, tiltZ);
-      scene.add(stalkGroup);
+      world.add(stalkGroup);
       pampasClusters.push({ group: stalkGroup, baseRotZ: tiltZ, phase: Math.random() * Math.PI * 2 });
     }
 
@@ -608,7 +830,7 @@
     bokehGeo.setAttribute('position', new THREE.BufferAttribute(bokehPos, 3));
     const bokehMat = new THREE.PointsMaterial({ color: '#fef9c3', size: 0.28, transparent: true, opacity: 0.6 });
     const bokehPoints = new THREE.Points(bokehGeo, bokehMat);
-    scene.add(bokehPoints);
+    world.add(bokehPoints);
 
     // 7. Build Power Pros (實況野球) 3D Marathon Runner
     const runner = new THREE.Group();
@@ -836,132 +1058,381 @@
     );
     shadowDisc.rotation.x = -Math.PI / 2;
     shadowDisc.position.y = 0.02;
-    scene.add(shadowDisc);
+    world.add(shadowDisc);
 
-    // 8. Marathon Obstacles System (Approaching from +Z toward runner at z=0, moving toward -Z)
+
+    // ===== 8. Scenery extras: buildings, river, street lamps, stars, shield bubble =====
+    function createWindowTexture() {
+      const c = document.createElement('canvas');
+      c.width = 64; c.height = 128;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, 64, 128);
+      for (let y = 8; y < 124; y += 14) {
+        for (let x = 6; x < 60; x += 14) {
+          ctx.fillStyle = Math.random() < 0.65 ? '#fde68a' : '#1f2937';
+          ctx.fillRect(x, y, 8, 8);
+        }
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.encoding = THREE.sRGBEncoding;
+      return tex;
+    }
+    const buildingColors = ['#94a3b8', '#a5b4c8', '#cbd5e1', '#8b9bb4', '#b7a99a'];
+    const buildings = [];
+    const windowTex = createWindowTexture();
+    for (let i = 0; i < 22; i++) {
+      const h = 3 + Math.random() * 6;
+      const mat = regMat(new THREE.MeshStandardMaterial({
+        color: buildingColors[i % buildingColors.length], roughness: 0.8,
+        emissive: '#ffffff', emissiveMap: windowTex, emissiveIntensity: 0
+      }));
+      const b = new THREE.Mesh(new THREE.BoxGeometry(2.2 + Math.random() * 1.6, h, 2.2 + Math.random() * 1.4), mat);
+      b.geometry.translate(0, h / 2, 0);
+      const side = i % 2 === 0 ? -1 : 1;
+      b.position.set(side * (8.5 + Math.random() * 5), 0, -22 + Math.random() * 34);
+      b.scale.y = 0.001;
+      b.visible = false;
+      world.add(b);
+      buildings.push(b);
+    }
+
+    const riverMat = regMat(new THREE.MeshStandardMaterial({ color: '#38bdf8', roughness: 0.15, metalness: 0.2, transparent: true, opacity: 0 }));
+    const river = new THREE.Mesh(new THREE.PlaneGeometry(6, 48), riverMat);
+    river.rotation.x = -Math.PI / 2;
+    river.position.set(-9.5, 0.03, 0);
+    river.visible = false;
+    world.add(river);
+
+    const lampBulbMat = regMat(new THREE.MeshStandardMaterial({ color: '#fef3c7', emissive: '#fde68a', emissiveIntensity: 0 }));
+    const lampPoleMat = regMat(new THREE.MeshStandardMaterial({ color: '#475569', roughness: 0.5, metalness: 0.4 }));
+    const lamps = [];
+    for (let i = 0; i < 5; i++) {
+      const g = new THREE.Group();
+      const side = -1; // left side only: keeps the 45° camera view clear
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 3.2, 8), lampPoleMat);
+      pole.position.y = 1.6;
+      g.add(pole);
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.06, 0.06), lampPoleMat);
+      arm.position.set(-side * 0.28, 3.15, 0);
+      g.add(arm);
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 10), lampBulbMat);
+      bulb.position.set(-side * 0.55, 3.05, 0);
+      g.add(bulb);
+      g.position.set(side * 4.5, 0, -16 + i * 5.8);
+      world.add(g);
+      lamps.push(g);
+    }
+
+    const starGeo = new THREE.BufferGeometry();
+    const starArr = new Float32Array(300 * 3);
+    for (let i = 0; i < 300; i++) {
+      const th = Math.random() * Math.PI * 2, ph = Math.random() * 1.2;
+      starArr[i * 3] = 60 * Math.sin(ph) * Math.cos(th);
+      starArr[i * 3 + 1] = 12 + 50 * Math.cos(ph);
+      starArr[i * 3 + 2] = 60 * Math.sin(ph) * Math.sin(th);
+    }
+    starGeo.setAttribute('position', new THREE.BufferAttribute(starArr, 3));
+    const starMat = new THREE.PointsMaterial({ color: '#ffffff', size: 0.35, transparent: true, opacity: 0, fog: false });
+    const stars = new THREE.Points(starGeo, starMat);
+    scene.add(stars);
+
+    const bubbleMat = new THREE.MeshStandardMaterial({ color: '#7dd3fc', emissive: '#38bdf8', emissiveIntensity: 0.25, transparent: true, opacity: 0.16, depthWrite: false });
+    const bubble = new THREE.Mesh(new THREE.SphereGeometry(1.25, 24, 18), bubbleMat);
+    bubble.visible = false;
+    scene.add(bubble);
+
+    // ===== 9. Stage themes (visual) =====
+    const STAGES = [
+      { name: '起跑區',     icon: '🏁', sky: '#bde5f8', fog: '#d8f0e4', fogD: 0.024, hemiS: '#e0f2fe', hemiG: '#94a3b8', hemiI: 0.9,  sun: '#fffbeb', sunI: 1.25, grass: '#7da442', tree: '#ffffff', road: '#ffffff', bldg: 0,   riverV: 0, lampV: 0,   starV: 0,   bokeh: '#fef9c3' },
+      { name: '河濱自行車道', icon: '🌊', sky: '#a5d8ff', fog: '#cfe9f5', fogD: 0.02,  hemiS: '#e0f2fe', hemiG: '#7dd3fc', hemiI: 0.95, sun: '#fffbeb', sunI: 1.3,  grass: '#6aa84f', tree: '#e8ffe0', road: '#ffffff', bldg: 0,   riverV: 1, lampV: 0,   starV: 0,   bokeh: '#e0f2fe' },
+      { name: '市區街道',   icon: '🏙️', sky: '#c7d2fe', fog: '#dfe3f0', fogD: 0.026, hemiS: '#eef2ff', hemiG: '#a1a1aa', hemiI: 0.9,  sun: '#fffbeb', sunI: 1.2,  grass: '#8a9a6a', tree: '#dfe8d0', road: '#e5e7eb', bldg: 1,   riverV: 0, lampV: 0.2, starV: 0,   bokeh: '#fef9c3' },
+      { name: '黃昏',       icon: '🌇', sky: '#fdba74', fog: '#fed7aa', fogD: 0.028, hemiS: '#fde68a', hemiG: '#9a6b4a', hemiI: 0.75, sun: '#fb923c', sunI: 1.1,  grass: '#8c8a3c', tree: '#ffcf99', road: '#fde2c4', bldg: 0.6, riverV: 0, lampV: 0.5, starV: 0,   bokeh: '#fdba74' },
+      { name: '夜晚',       icon: '🌙', sky: '#0f1b3d', fog: '#1e293b', fogD: 0.03,  hemiS: '#93c5fd', hemiG: '#1e293b', hemiI: 0.5,  sun: '#c7d2fe', sunI: 0.5,  grass: '#2f4a2a', tree: '#5a6b8a', road: '#6b7280', bldg: 1,   riverV: 0, lampV: 1,   starV: 1,   bokeh: '#fde68a' },
+      { name: '撞牆期',     icon: '🧱', sky: '#3b2a5e', fog: '#5b4b7a', fogD: 0.036, hemiS: '#e9d5ff', hemiG: '#3b2a5e', hemiI: 0.58, sun: '#f0abfc', sunI: 0.65, grass: '#4a5a3a', tree: '#a08ab8', road: '#8b80a0', bldg: 0.3, riverV: 0, lampV: 0.7, starV: 0.4, bokeh: '#f0abfc' },
+      { name: '終點衝刺',   icon: '🔥', sky: '#ffe4c7', fog: '#fde2e4', fogD: 0.022, hemiS: '#fff7ed', hemiG: '#c2a38a', hemiI: 1.0,  sun: '#fde68a', sunI: 1.4,  grass: '#84cc16', tree: '#fff1d6', road: '#ffffff', bldg: 0.5, riverV: 0, lampV: 0,   starV: 0,   bokeh: '#fde68a' },
+      { name: '超馬模式',   icon: '💜', sky: '#312e81', fog: '#3730a3', fogD: 0.03,  hemiS: '#c4b5fd', hemiG: '#312e81', hemiI: 0.58, sun: '#a5b4fc', sunI: 0.65, grass: '#365314', tree: '#7c83b8', road: '#7c7aa0', bldg: 0.8, riverV: 0, lampV: 1,   starV: 1,   bokeh: '#c4b5fd' }
+    ];
+    const treeBaseColors = bgTrees.map((t) => t.material.color.clone());
+    const roadMatRef = roadMesh.material;
+    const vis = { bldg: 0, riverV: 0, lampV: 0, starV: 0 };
+    const _c = new THREE.Color();
+    function applyTheme(th, k) {
+      scene.background.lerp(_c.set(th.sky), k);
+      scene.fog.color.lerp(_c.set(th.fog), k);
+      scene.fog.density += (th.fogD - scene.fog.density) * k;
+      hemiLight.color.lerp(_c.set(th.hemiS), k);
+      hemiLight.groundColor.lerp(_c.set(th.hemiG), k);
+      hemiLight.intensity += (th.hemiI - hemiLight.intensity) * k;
+      sunLight.color.lerp(_c.set(th.sun), k);
+      sunLight.intensity += (th.sunI - sunLight.intensity) * k;
+      grassMat.color.lerp(_c.set(th.grass), k);
+      roadMatRef.color.lerp(_c.set(th.road), k);
+      bokehMat.color.lerp(_c.set(th.bokeh), k);
+      const tint = new THREE.Color(th.tree);
+      bgTrees.forEach((t, i) => t.material.color.lerp(_c.copy(treeBaseColors[i]).multiply(tint), k));
+      ['bldg', 'riverV', 'lampV', 'starV'].forEach((key) => { vis[key] += (th[key] - vis[key]) * k; });
+      buildings.forEach((b) => {
+        b.scale.y = Math.max(0.001, vis.bldg);
+        b.visible = vis.bldg > 0.02;
+        b.material.emissiveIntensity = vis.lampV * 0.9;
+      });
+      river.visible = vis.riverV > 0.02;
+      riverMat.opacity = vis.riverV * 0.85;
+      lampBulbMat.emissiveIntensity = vis.lampV * 2.2;
+      starMat.opacity = vis.starV;
+    }
+    applyTheme(STAGES[0], 1);
+
+    // ===== 10. Game State =====
+    const SPAWN_Z = 14.5;
+    const KM_PER_SEC = 42.195 / 300;   // 1.0x pace → 42.195K in ~5 minutes
+    const SIM_SCALE = 42;              // 300 game-seconds → 3:30:00 marathon time (5:00/km)
+    const MARATHON = 42.195;
+
+    let score = 0, dodgedCount = 0, supplyCount = 0, currentLevel = 1, stageIdx = 0;
+    let distKm = 0, gameTime = 0, simTime = 0, lastKmSim = 0, lastKmInt = 0;
+    let ultraMode = false, finishSpawned = false;
+    let comboStreak = 0, maxCombo = 0, comboMult = 1;
+    let hasShield = false, invulnTimer = 0, shieldTimer = 22;
+    let firstOverheadShown = false;
+
+    // Hills
+    let slopeFactor = 1, slopeTarget = 1, slopeTilt = 0;
+    let hillState = 'none', hillType = 'up', nextHillKm = 2.2 + Math.random() * 1.5, hillEndKm = 0;
+    // Events
+    let nextCheerKm = 1.6 + Math.random() * 1.5;
+    let nextStationIdx = 1;               // 10K, 20K, 30K, 40K
+    let stationActiveUntil = -1, stationAnnounced = false, nextTentKm = 0;
+    let kmSignSpawned = 0;
+
+    // Jump / slide physics
+    let jumpY = 0, jumpVel = 0, isGrounded = true, jumpCount = 0;
+    let isSliding = false, slideTimer = 0, slideQueued = false;
+    const MAX_JUMPS = 2, JUMP_FORCE = 9.4, GRAVITY = -25.0, SLIDE_TIME = 0.6;
+
     const obstacles = [];
-    let spawnTimer = 1.1;
+    const supplies = [];
+    const props = [];
+    let spawnTimer = 1.6, supplyTimer = 1.8;
+
+    function leadKm() {
+      const boost = 1 + Math.min(1.0, (currentLevel - 1) * 0.08);
+      return SPAWN_Z * KM_PER_SEC / (4.6 * boost);
+    }
+
+    // ===== UI helpers =====
+    let announceTimer = null;
+    function announce(title, sub, ms) {
+      announceTitle.textContent = title;
+      announceSub.textContent = sub || '';
+      announceEl.classList.remove('opacity-0', 'scale-90');
+      clearTimeout(announceTimer);
+      announceTimer = setTimeout(() => announceEl.classList.add('opacity-0', 'scale-90'), ms || 1600);
+    }
+    let bonusTimer = null;
+    function showBonusPopup(text, cls) {
+      bonusPopupEl.textContent = text;
+      bonusPopupEl.className = 'transition-all duration-300 font-black text-sm px-3 py-1 rounded-full shadow-lg ' + (cls || 'bg-cyan-500/90 text-slate-950');
+      clearTimeout(bonusTimer);
+      bonusTimer = setTimeout(() => bonusPopupEl.classList.add('opacity-0'), 1000);
+    }
+    function addPoints(base) { const p = Math.round(base * comboMult); score += p; return p; }
+    function updateComboUI() {
+      if (comboStreak > 0) {
+        comboBadge.textContent = '連擊 ' + comboStreak + ' · ×' + comboMult.toFixed(1);
+        comboBadge.classList.remove('opacity-0');
+      } else comboBadge.classList.add('opacity-0');
+    }
+    function updateSlopeUI() {
+      if (hillState === 'up' || hillState === 'down') {
+        const up = hillState === 'up';
+        slopeBadge.textContent = up ? '⛰️ 上坡 −20%' : '🎢 下坡 +20%';
+        slopeBadge.className = 'rounded-full px-2.5 py-0.5 text-xs font-bold ' + (up ? 'bg-amber-600/90 text-white' : 'bg-teal-500/90 text-slate-950');
+      } else slopeBadge.className = 'hidden';
+    }
+
+    // ===== Text textures for signs / banners =====
+    function textTexture(lines, opts) {
+      opts = opts || {};
+      const w = opts.w || 512, h = opts.h || 128;
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = opts.bg || '#ffffff';
+      ctx.fillRect(0, 0, w, h);
+      if (opts.border) { ctx.strokeStyle = opts.border; ctx.lineWidth = 10; ctx.strokeRect(5, 5, w - 10, h - 10); }
+      ctx.fillStyle = opts.fg || '#0f172a';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const size = opts.size || Math.floor(h * 0.6 / lines.length);
+      ctx.font = '900 ' + size + 'px "Noto Sans TC", Inter, sans-serif';
+      lines.forEach((ln, i) => ctx.fillText(ln, w / 2, h * (i + 0.5) / lines.length));
+      const tex = new THREE.CanvasTexture(c);
+      tex.encoding = THREE.sRGBEncoding;
+      return tex;
+    }
+    function signBoard(lines, opts, width, height, postH) {
+      const g = new THREE.Group();
+      const mat = regMat(new THREE.MeshStandardMaterial({ map: textTexture(lines, opts), roughness: 0.5 }));
+      const board = new THREE.Mesh(new THREE.BoxGeometry(width, height, 0.06), mat);
+      board.position.y = postH + height / 2;
+      g.add(board);
+      [-1, 1].forEach((s) => {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, postH + height, 8), lampPoleMat);
+        post.position.set(s * (width / 2 - 0.08), (postH + height) / 2, -0.05);
+        g.add(post);
+      });
+      board.castShadow = true;
+      return g;
+    }
+
+    // ===== 11. Obstacles =====
+    const BANNER_TEXTS = ['加油！', '你最棒！', '你可以的！', '跑起來！', '剩一半了！', '堅持住！', 'GO GO GO', '台灣加油'];
+    const archRed = regMat(new THREE.MeshStandardMaterial({ color: '#ef4444', roughness: 0.6 }));
+    const archWhite = regMat(new THREE.MeshStandardMaterial({ color: '#f8fafc', roughness: 0.6 }));
+    const archBlue = regMat(new THREE.MeshStandardMaterial({ color: '#2563eb', roughness: 0.6 }));
+
+    function buildArch(R, tube, colorA, colorB, label) {
+      const g = new THREE.Group();
+      const segs = 7;
+      for (let s = 0; s < segs; s++) {
+        const seg = new THREE.Mesh(new THREE.TorusGeometry(R, tube, 10, 8, Math.PI / segs), s % 2 === 0 ? colorA : colorB);
+        seg.rotation.z = (Math.PI / segs) * s;
+        seg.castShadow = true;
+        g.add(seg);
+      }
+      if (label) {
+        const plate = new THREE.Mesh(new THREE.BoxGeometry(R * 1.3, R * 0.32, 0.12),
+          regMat(new THREE.MeshStandardMaterial({ map: textTexture([label.text], { bg: label.bg, fg: label.fg, w: 512, h: 128 }), roughness: 0.5 })));
+        plate.position.set(0, R + tube * 0.6, 0.1);
+        g.add(plate);
+      }
+      return g;
+    }
 
     function createObstacle(type) {
-      const group = new THREE.Group();
+      let group = new THREE.Group();
       let hitHeight = 0.65;
       let hitRadiusZ = 0.32;
+      let overhead = false;
 
-      if (type === 'cone') {
-        // Orange & White Traffic Cone
-        const base = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.06, 0.55), coneOrangeMat);
-        base.position.y = 0.03;
-        base.castShadow = true;
-        group.add(base);
-
-        const cone = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.65, 16), coneOrangeMat);
-        cone.position.y = 0.35;
-        cone.castShadow = true;
-        group.add(cone);
-
-        const stripe = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.16, 0.16, 16), whiteMat);
-        stripe.position.y = 0.38;
-        group.add(stripe);
-
-        hitHeight = 0.64;
-        hitRadiusZ = 0.28;
-      } else if (type === 'double_cone') {
-        // Twin Traffic Cones (wider & taller visual pressure)
-        [-0.36, 0.36].forEach((ox) => {
-          const base = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.06, 0.48), coneOrangeMat);
-          base.position.set(ox, 0.03, 0);
+      if (type === 'arch') {
+        group = buildArch(1.95, 0.32, archRed, archWhite, { text: '加油站', bg: '#ef4444', fg: '#ffffff' });
+        overhead = true;
+        hitRadiusZ = 0.34;
+      } else if (type === 'banner') {
+        [-1, 1].forEach((s) => {
+          const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.35, 8), whiteMat);
+          pole.position.set(s * 2.15, 1.175, 0);
+          pole.castShadow = true;
+          group.add(pole);
+        });
+        const txt = BANNER_TEXTS[Math.floor(Math.random() * BANNER_TEXTS.length)];
+        const colors = [['#facc15', '#7c2d12'], ['#22c55e', '#ffffff'], ['#ec4899', '#ffffff'], ['#3b82f6', '#ffffff']][Math.floor(Math.random() * 4)];
+        const cloth = new THREE.Mesh(new THREE.BoxGeometry(4.3, 0.62, 0.04),
+          regMat(new THREE.MeshStandardMaterial({ map: textTexture([txt], { bg: colors[0], fg: colors[1], w: 512, h: 80 }), roughness: 0.7 })));
+        cloth.position.y = 1.9;
+        cloth.castShadow = true;
+        group.add(cloth);
+        overhead = true;
+        hitRadiusZ = 0.2;
+      } else {
+        if (type === 'cone') {
+          // Orange & White Traffic Cone
+          const base = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.06, 0.55), coneOrangeMat);
+          base.position.y = 0.03;
           base.castShadow = true;
           group.add(base);
 
-          const cone = new THREE.Mesh(new THREE.ConeGeometry(0.20, 0.72, 16), coneOrangeMat);
-          cone.position.set(ox, 0.39, 0);
+          const cone = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.65, 16), coneOrangeMat);
+          cone.position.y = 0.35;
           cone.castShadow = true;
           group.add(cone);
 
-          const stripe = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.145, 0.16, 16), whiteMat);
-          stripe.position.set(ox, 0.42, 0);
+          const stripe = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.16, 0.16, 16), whiteMat);
+          stripe.position.y = 0.38;
           group.add(stripe);
-        });
-        hitHeight = 0.70;
-        hitRadiusZ = 0.30;
-      } else if (type === 'tall_hurdle') {
-        // High Marathon Barricade (requires higher/double jump or crisp timing)
-        [-0.72, 0.72].forEach((px) => {
-          const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.88, 10), whiteMat);
-          leg.position.set(px, 0.44, 0);
-          leg.castShadow = true;
-          group.add(leg);
-          const foot = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.05, 0.40), darkMat);
-          foot.position.set(px, 0.025, 0);
-          group.add(foot);
-        });
-        const barTop = new THREE.Mesh(new THREE.BoxGeometry(1.65, 0.18, 0.10), hurdleRedMat);
-        barTop.position.y = 0.82;
-        barTop.castShadow = true;
-        group.add(barTop);
-        const barMid = new THREE.Mesh(new THREE.BoxGeometry(1.65, 0.12, 0.08), whiteMat);
-        barMid.position.y = 0.56;
-        group.add(barMid);
-        hitHeight = 0.88;
-        hitRadiusZ = 0.28;
-      } else {
-        // Red & White Marathon Hurdle / Barricade
-        [-0.65, 0.65].forEach((px) => {
-          const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.62, 10), whiteMat);
-          leg.position.set(px, 0.31, 0);
-          leg.castShadow = true;
-          group.add(leg);
 
-          const foot = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.05, 0.36), darkMat);
-          foot.position.set(px, 0.025, 0);
-          group.add(foot);
-        });
+          hitHeight = 0.64;
+          hitRadiusZ = 0.28;
+        } else if (type === 'double_cone') {
+          // Twin Traffic Cones (wider & taller visual pressure)
+          [-0.36, 0.36].forEach((ox) => {
+            const base = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.06, 0.48), coneOrangeMat);
+            base.position.set(ox, 0.03, 0);
+            base.castShadow = true;
+            group.add(base);
 
-        const bar = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.16, 0.08), hurdleRedMat);
-        bar.position.y = 0.56;
-        bar.castShadow = true;
-        group.add(bar);
+            const cone = new THREE.Mesh(new THREE.ConeGeometry(0.20, 0.72, 16), coneOrangeMat);
+            cone.position.set(ox, 0.39, 0);
+            cone.castShadow = true;
+            group.add(cone);
 
-        const centerStripe = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.165, 0.09), whiteMat);
-        centerStripe.position.y = 0.56;
-        group.add(centerStripe);
+            const stripe = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.145, 0.16, 16), whiteMat);
+            stripe.position.set(ox, 0.42, 0);
+            group.add(stripe);
+          });
+          hitHeight = 0.70;
+          hitRadiusZ = 0.30;
+        } else if (type === 'tall_hurdle') {
+          // High Marathon Barricade (requires higher/double jump or crisp timing)
+          [-0.72, 0.72].forEach((px) => {
+            const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.88, 10), whiteMat);
+            leg.position.set(px, 0.44, 0);
+            leg.castShadow = true;
+            group.add(leg);
+            const foot = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.05, 0.40), darkMat);
+            foot.position.set(px, 0.025, 0);
+            group.add(foot);
+          });
+          const barTop = new THREE.Mesh(new THREE.BoxGeometry(1.65, 0.18, 0.10), hurdleRedMat);
+          barTop.position.y = 0.82;
+          barTop.castShadow = true;
+          group.add(barTop);
+          const barMid = new THREE.Mesh(new THREE.BoxGeometry(1.65, 0.12, 0.08), whiteMat);
+          barMid.position.y = 0.56;
+          group.add(barMid);
+          hitHeight = 0.88;
+          hitRadiusZ = 0.28;
+        } else {
+          // Red & White Marathon Hurdle / Barricade
+          [-0.65, 0.65].forEach((px) => {
+            const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.62, 10), whiteMat);
+            leg.position.set(px, 0.31, 0);
+            leg.castShadow = true;
+            group.add(leg);
 
-        hitHeight = 0.62;
-        hitRadiusZ = 0.26;
+            const foot = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.05, 0.36), darkMat);
+            foot.position.set(px, 0.025, 0);
+            group.add(foot);
+          });
+
+          const bar = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.16, 0.08), hurdleRedMat);
+          bar.position.y = 0.56;
+          bar.castShadow = true;
+          group.add(bar);
+
+          const centerStripe = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.165, 0.09), whiteMat);
+          centerStripe.position.y = 0.56;
+          group.add(centerStripe);
+
+          hitHeight = 0.62;
+          hitRadiusZ = 0.26;
+        }
       }
 
-      group.position.set(0, 0, 14.5);
-      scene.add(group);
-      obstacles.push({
-        group,
-        hitHeight,
-        hitRadiusZ,
-        passed: false
-      });
+      group.position.set(0, 0, SPAWN_Z);
+      world.add(group);
+      obstacles.push({ group, hitHeight, hitRadiusZ, overhead, passed: false, hit: false });
     }
 
-    function clearObstacles() {
-      obstacles.forEach((ob) => scene.remove(ob.group));
-      obstacles.length = 0;
-    }
+    function clearList(list) { list.forEach((o) => world.remove(o.group)); list.length = 0; }
 
-    // Supply Items System (Sports Drink +100, Energy Gel +150)
-    const supplies = [];
-    let supplyTimer = 1.8;
-
-    function showBonusPopup(text) {
-      bonusPopupEl.textContent = text;
-      bonusPopupEl.classList.remove('opacity-0');
-      clearTimeout(window.__bonusTimer);
-      window.__bonusTimer = setTimeout(() => bonusPopupEl.classList.add('opacity-0'), 900);
-    }
-
-    function createSupply() {
+    // ===== 12. Supplies & Shield item =====
+    function createSupply(forceLow) {
       const isEnergy = Math.random() < 0.42;
       const group = new THREE.Group();
-
       if (isEnergy) {
-        // Golden Energy Gel / Bar (+150)
         const bar = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.36, 0.14), energyGoldMat);
         bar.castShadow = true;
         group.add(bar);
@@ -969,7 +1440,6 @@
         cap.position.y = 0.22;
         group.add(cap);
       } else {
-        // Cyan Sports Drink Bottle (+100)
         const bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.38, 14), drinkBlueMat);
         bottle.castShadow = true;
         group.add(bottle);
@@ -979,108 +1449,276 @@
         cap.position.y = 0.23;
         group.add(cap);
       }
-
-      // Glow ring under item
-      const ring = new THREE.Mesh(
-        new THREE.TorusGeometry(0.26, 0.02, 8, 20),
-        isEnergy ? energyGoldMat : drinkBlueMat
-      );
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.02, 8, 20), isEnergy ? energyGoldMat : drinkBlueMat);
       ring.rotation.x = Math.PI / 2;
       ring.position.y = -0.22;
       group.add(ring);
 
-      const isHigh = Math.random() < 0.45;
-      const baseY = isHigh ? 1.45 : 0.48;
-      group.position.set(0, baseY, 14.5);
-      scene.add(group);
+      const baseY = (!forceLow && Math.random() < 0.45) ? 1.45 : 0.48;
+      group.position.set(0, baseY, SPAWN_Z);
+      world.add(group);
+      supplies.push({ group, baseY, kind: 'supply', points: isEnergy ? 150 : 100, label: isEnergy ? '能量補給' : '運動飲料', phase: Math.random() * Math.PI * 2 });
+    }
 
-      supplies.push({
-        group,
-        baseY,
-        points: isEnergy ? 150 : 100,
-        label: isEnergy ? '+150 能量補給!' : '+100 運動飲料!',
-        phase: Math.random() * Math.PI * 2
+    const shieldItemMat = regMat(new THREE.MeshStandardMaterial({ color: '#7dd3fc', emissive: '#0ea5e9', emissiveIntensity: 0.6, roughness: 0.2, metalness: 0.3 }));
+    function createShieldItem() {
+      const group = new THREE.Group();
+      const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.3, 0), shieldItemMat);
+      core.castShadow = true;
+      group.add(core);
+      const halo = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.03, 8, 24), shieldItemMat);
+      group.add(halo);
+      group.position.set(0, 0.6, SPAWN_Z);
+      world.add(group);
+      supplies.push({ group, baseY: 0.6, kind: 'shield', phase: 0 });
+    }
+
+    // ===== 13. Roadside props: km signs, hill signs, cheer squads, stations, finish arch =====
+    function addProp(group, onPass) {
+      group.position.z = SPAWN_Z;
+      world.add(group);
+      props.push({ group, onPass, passed: false });
+    }
+    function spawnKmSign(k) {
+      const g = signBoard([k + 'K'], { bg: '#1d4ed8', fg: '#ffffff', border: '#ffffff', w: 256, h: 160 }, 0.9, 0.56, 1.1);
+      g.position.x = 3.6;
+      g.rotation.y = -0.35;
+      addProp(g);
+    }
+    function spawnHillSign(up) {
+      const g = signBoard([up ? '⚠ 前方上坡' : '⚠ 前方下坡'], { bg: '#facc15', fg: '#0f172a', border: '#0f172a', w: 512, h: 160 }, 1.5, 0.46, 1.0);
+      g.position.x = -3.7;
+      g.rotation.y = 0.35;
+      addProp(g);
+    }
+    const shirtColors = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#a855f7', '#ec4899'];
+    function spawnCheerSquad() {
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const g = new THREE.Group();
+      const fans = [];
+      const n = 4 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < n; i++) {
+        const fan = new THREE.Group();
+        const body = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.24, 0.6, 10), regMat(new THREE.MeshStandardMaterial({ color: shirtColors[(i + Math.floor(Math.random() * 6)) % 6], roughness: 0.6 })));
+        body.position.y = 0.55;
+        fan.add(body);
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), skinMat);
+        head.position.y = 1.05;
+        fan.add(head);
+        const armL = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.45, 6), skinMat);
+        armL.position.set(-0.27, 1.0, 0);
+        fan.add(armL);
+        const armR = armL.clone();
+        armR.position.x = 0.27;
+        fan.add(armR);
+        if (i % 2 === 0) {
+          const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.22), hurdleRedMat);
+          flag.position.set(0.42, 1.42, 0);
+          fan.add(flag);
+        }
+        fan.position.set(side * (3.5 + (i % 2) * 0.6), 0, (i - n / 2) * 0.55);
+        fan.rotation.y = side > 0 ? -1.2 : 1.2;
+        g.add(fan);
+        fans.push({ fan, armL, armR, phase: Math.random() * 6 });
+      }
+      const sign = signBoard(['加油！517'], { bg: '#ffffff', fg: '#dc2626', border: '#dc2626', w: 512, h: 128 }, 1.4, 0.36, 1.2);
+      sign.position.set(side * 4.3, 0, 0);
+      sign.rotation.y = side > 0 ? -0.6 : 0.6;
+      g.add(sign);
+      g.userData.fans = fans;
+      addProp(g, () => {
+        const p = addPoints(100);
+        showBonusPopup('📣 加油團 +' + p, 'bg-pink-500/90 text-white');
+        playSfx('cheer');
       });
     }
-
-    function clearSupplies() {
-      supplies.forEach((sp) => scene.remove(sp.group));
-      supplies.length = 0;
+    function spawnStationTent(withSign) {
+      [-1, 1].forEach((side) => {
+        const g = new THREE.Group();
+        const table = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.08, 1.6), whiteMat);
+        table.position.y = 0.75;
+        g.add(table);
+        for (let c = 0; c < 6; c++) {
+          const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.05, 0.14, 8), c % 2 ? drinkBlueMat : energyGoldMat);
+          cup.position.set(-0.3 + (c % 3) * 0.3, 0.86, -0.4 + Math.floor(c / 3) * 0.8);
+          g.add(cup);
+        }
+        const roof = new THREE.Mesh(new THREE.ConeGeometry(1.3, 0.6, 4), side > 0 ? archBlue : archRed);
+        roof.position.y = 2.35;
+        roof.rotation.y = Math.PI / 4;
+        g.add(roof);
+        [[-0.6, -0.8], [0.6, -0.8], [-0.6, 0.8], [0.6, 0.8]].forEach(([x, z]) => {
+          const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 2.1, 6), lampPoleMat);
+          leg.position.set(x, 1.05, z);
+          g.add(leg);
+        });
+        if (withSign && side < 0) {
+          const s = signBoard(['補給站 WATER'], { bg: '#0ea5e9', fg: '#ffffff', w: 512, h: 128 }, 1.6, 0.4, 2.0);
+          s.position.set(0.4, 0, 0);
+          s.rotation.y = 0.5;
+          g.add(s);
+        }
+        g.position.x = side * 4.0;
+        addProp(g);
+      });
+    }
+    function spawnFinishArch() {
+      const g = buildArch(2.6, 0.38, archBlue, archWhite, { text: 'FINISH 42.195K', bg: '#1d4ed8', fg: '#ffffff' });
+      addProp(g);
+      for (let i = 0; i < 2; i++) setTimeout(() => { if (phase === 'running') spawnCheerSquad(); }, 300 + i * 500);
     }
 
-    // 9. Jump & Game Actions
+    // ===== 14. Actions =====
     function triggerJump() {
-      if (isGameOver || !isPlaying) return;
+      if (phase !== 'running') return;
+      if (isSliding) { isSliding = false; slideTimer = 0; }
+      slideQueued = false;
       if (isGrounded || jumpCount < MAX_JUMPS) {
-        jumpVel = jumpCount === 0 ? JUMP_FORCE : JUMP_FORCE * 0.90;
+        jumpVel = jumpCount === 0 ? JUMP_FORCE : JUMP_FORCE * 0.9;
         isGrounded = false;
         jumpCount += 1;
         playSfx('jump');
       }
     }
+    function startSlide() {
+      isSliding = true;
+      slideTimer = SLIDE_TIME;
+      playSfx('slide');
+    }
+    function triggerSlide() {
+      if (phase !== 'running') return;
+      if (!isGrounded) {
+        jumpVel = Math.min(jumpVel, -16);
+        slideQueued = true;
+        return;
+      }
+      startSlide();
+    }
+
+    function setPlayUI() {
+      const map = {
+        ready: ['bg-slate-400', '準備'], running: ['bg-emerald-400 animate-pulse', '跑步中'],
+        paused: ['bg-slate-400', '已暫停'], over: ['bg-rose-400', '結束'], finished: ['bg-amber-400', '完賽']
+      };
+      const m = map[phase];
+      playDot.className = 'w-2 h-2 rounded-full ' + m[0];
+      playLabel.textContent = m[1];
+    }
+
+    function checkRecords() {
+      const msgs = [];
+      const fs = Math.floor(score);
+      if (fs > bestScore) { bestScore = fs; saveRec(REC.score, fs); msgs.push('最高分'); }
+      if (distKm > bestDist) { bestDist = distKm; saveRec(REC.dist, distKm); msgs.push('最遠距離'); }
+      refreshRecordsUI();
+      return msgs;
+    }
 
     function triggerGameOver() {
-      isGameOver = true;
+      phase = 'over';
+      setPlayUI();
       playSfx('hit');
-      const finalScore = Math.floor(score);
-      if (finalScore > bestScore) {
-        bestScore = finalScore;
-        bestValEl.textContent = bestScore;
-        try {
-          localStorage.setItem('marathon_517_best', String(bestScore));
-        } catch {}
-      }
-      finalScoreEl.textContent = finalScore;
-      finalDodgedEl.textContent = dodgedCount;
-      finalSupplyEl.textContent = supplyCount;
+      Music.jingle('over');
+      const msgs = checkRecords();
+      $('final-score').textContent = Math.floor(score);
+      $('final-dist').textContent = distKm.toFixed(2) + 'K';
+      $('final-time').textContent = fmtTime(simTime);
+      $('final-dodged').textContent = dodgedCount;
+      $('final-supply').textContent = supplyCount;
+      $('final-combo').textContent = maxCombo;
+      $('over-sub').textContent = ultraMode
+        ? '#517 HSINHUNG YEH 超馬挑戰結束（已完成全馬）'
+        : '#517 HSINHUNG YEH 在 ' + distKm.toFixed(1) + 'K 倒下了…';
+      $('over-records').textContent = msgs.length ? '🎉 刷新紀錄：' + msgs.join('、') : '';
       gameoverOverlay.classList.remove('hidden');
-      btnJump.disabled = true;
-      btnJump.classList.add('opacity-50', 'pointer-events-none');
     }
 
-    function restartGame() {
-      clearObstacles();
-      clearSupplies();
-      score = 0;
-      dodgedCount = 0;
-      supplyCount = 0;
-      supplyTimer = 1.6;
-      jumpY = 0;
-      jumpVel = 0;
-      isGrounded = true;
-      jumpCount = 0;
-      currentLevel = 1;
+    function triggerFinish(finishSim) {
+      phase = 'finished';
+      setPlayUI();
+      Music.jingle('finish');
+      playSfx('levelup');
+      const msgs = checkRecords();
+      if (bestTime === 0 || finishSim < bestTime) { bestTime = finishSim; saveRec(REC.time, finishSim); msgs.push('最佳完賽時間'); }
+      refreshRecordsUI();
+      $('finish-time').textContent = fmtTime(finishSim);
+      $('finish-score').textContent = Math.floor(score);
+      $('finish-pace').textContent = fmtPace(finishSim / MARATHON);
+      $('finish-records').textContent = msgs.length ? '🎉 刷新紀錄：' + msgs.join('、') : '';
+      finishOverlay.classList.remove('hidden');
+    }
+
+    function continueUltra() {
+      ultraMode = true;
+      finishOverlay.classList.add('hidden');
+      phase = 'running';
+      setPlayUI();
+      nextHillKm = distKm + 1.2;
+      announce('🔥 超馬模式', '沒有終點，看你能跑多遠！', 2000);
+      Music.start(7);
+    }
+
+    function resetGame() {
+      clearList(obstacles); clearList(supplies); clearList(props);
+      score = 0; dodgedCount = 0; supplyCount = 0; currentLevel = 1; stageIdx = 0;
+      distKm = 0; gameTime = 0; simTime = 0; lastKmSim = 0; lastKmInt = 0;
+      ultraMode = false; finishSpawned = false;
+      comboStreak = 0; maxCombo = 0; comboMult = 1;
+      hasShield = false; invulnTimer = 0; shieldTimer = 22;
+      slopeFactor = 1; slopeTarget = 1; slopeTilt = 0; world.rotation.x = 0;
+      hillState = 'none'; nextHillKm = 2.2 + Math.random() * 1.5;
+      nextCheerKm = 1.6 + Math.random() * 1.5;
+      nextStationIdx = 1; stationActiveUntil = -1; stationAnnounced = false;
+      kmSignSpawned = 0;
+      jumpY = 0; jumpVel = 0; isGrounded = true; jumpCount = 0;
+      isSliding = false; slideTimer = 0; slideQueued = false;
+      spawnTimer = 1.6; supplyTimer = 1.8;
+      runner.visible = true; bubble.visible = false;
+      applyTheme(STAGES[0], 1);
       levelValEl.textContent = 'Lv.1';
-      spawnTimer = 1.0;
-      isGameOver = false;
-      isPlaying = true;
-
+      stageValEl.textContent = STAGES[0].name;
       scoreValEl.textContent = '0';
-      dodgeValEl.textContent = '0';
-      supplyValEl.textContent = '0';
-      playDot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
-      playLabel.textContent = '跑步中';
-
+      distValEl.textContent = '0.00';
+      timeValEl.textContent = fmtTime(0);
+      shieldBadge.classList.add('hidden');
+      updateComboUI(); updateSlopeUI();
       gameoverOverlay.classList.add('hidden');
-      btnJump.disabled = false;
-      btnJump.classList.remove('opacity-50', 'pointer-events-none');
+      finishOverlay.classList.add('hidden');
     }
 
-    // Controls Listeners
-    btnJump.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      triggerJump();
-    });
-    btnRestart.addEventListener('click', restartGame);
+    function startRun() {
+      ensureAudio();
+      resetGame();
+      startOverlay.classList.add('hidden');
+      phase = 'running';
+      setPlayUI();
+      Music.start(0);
+      announce('🏁 起跑！', '目標 42.195K · 加油 #517', 1800);
+    }
+
+    // ===== 15. Controls =====
+    function bindAction(btn, fn) {
+      btn.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); fn(); });
+    }
+    bindAction(btnJump, triggerJump);
+    bindAction(btnSlide, triggerSlide);
+    [startOverlay, gameoverOverlay, finishOverlay].forEach((el) => el.addEventListener('pointerdown', (e) => e.stopPropagation()));
+    btnStart.addEventListener('click', startRun);
+    btnRestart.addEventListener('click', startRun);
+    btnFinishRestart.addEventListener('click', startRun);
+    btnUltra.addEventListener('click', continueUltra);
 
     window.addEventListener('keydown', (e) => {
-      if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
+      const k = e.code;
+      if (k === 'Space' || k === 'ArrowUp' || k === 'KeyW') {
         e.preventDefault();
-        if (isGameOver) {
-          restartGame();
-        } else {
-          triggerJump();
-        }
+        if (phase === 'ready' || phase === 'over') startRun();
+        else triggerJump();
+      } else if (k === 'ArrowDown' || k === 'KeyS') {
+        e.preventDefault();
+        triggerSlide();
+      } else if (k === 'Enter' && (phase === 'ready' || phase === 'over')) {
+        startRun();
       }
     });
 
@@ -1090,253 +1728,406 @@
     });
 
     btnPlay.addEventListener('click', () => {
-      if (isGameOver) return;
-      isPlaying = !isPlaying;
-      if (isPlaying) {
-        playDot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
-        playLabel.textContent = '跑步中';
-      } else {
-        playDot.className = 'w-2 h-2 rounded-full bg-slate-400';
-        playLabel.textContent = '已暫停';
-      }
+      if (phase === 'running') { phase = 'paused'; Music.stop(); }
+      else if (phase === 'paused') { phase = 'running'; if (isMusicOn) Music.start(Music.songIdx); }
+      setPlayUI();
     });
-
-    btnMute.addEventListener('click', () => {
-      isMuted = !isMuted;
-      btnMute.textContent = isMuted ? '🔇 靜音' : '🔊 音效';
-    });
+    btnMusic.addEventListener('click', () => { ensureAudio(); setMusicOn(!isMusicOn); });
+    btnSfx.addEventListener('click', () => setSfxOn(!isSfxOn));
 
     btnWire.addEventListener('click', () => {
       isWireframe = !isWireframe;
       allMaterials.forEach((m) => { m.wireframe = isWireframe; });
       btnWire.className = isWireframe
-        ? 'px-3 py-1.5 rounded-lg bg-sky-500 text-white text-xs font-medium transition'
-        : 'px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium transition';
+        ? 'hidden sm:inline-block px-3 py-1.5 rounded-lg bg-sky-500 text-white text-xs font-medium transition'
+        : 'hidden sm:inline-block px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium transition';
     });
 
-    // 10. Main Animation & Game Loop
+    // ===== 16. Main loop =====
     let clockTime = 0;
     let lastNow = performance.now();
+    let hudTimer = 0;
+
+    function moveScenery(ds) {
+      roadTex.offset.y += ds / 4.0;
+      roadLeaves.forEach((leaf) => {
+        leaf.position.z -= ds;
+        if (leaf.position.z < -18) { leaf.position.z = 8 + Math.random() * 4; leaf.position.x = (Math.random() - 0.5) * 6.4; }
+      });
+      bgTrees.forEach((tree) => {
+        tree.position.z -= ds * 0.85;
+        if (tree.position.z < -22) tree.position.z = 11 + Math.random() * 4;
+      });
+      buildings.forEach((b) => {
+        b.position.z -= ds * 0.85;
+        if (b.position.z < -22) b.position.z = 11 + Math.random() * 4;
+      });
+      lamps.forEach((l) => {
+        l.position.z -= ds;
+        if (l.position.z < -16) l.position.z += 29;
+      });
+      pampasClusters.forEach((p) => {
+        p.group.position.z -= ds;
+        if (p.group.position.z < -16) p.group.position.z = 10 + Math.random() * 4;
+      });
+      const posArr = bokehGeo.attributes.position.array;
+      for (let i = 0; i < bokehCount; i++) {
+        posArr[i * 3 + 2] -= ds * 0.5;
+        if (posArr[i * 3 + 2] < -14) posArr[i * 3 + 2] = 9 + Math.random() * 3;
+      }
+      bokehGeo.attributes.position.needsUpdate = true;
+    }
+
+    function onStageChange(newStage) {
+      stageIdx = newStage;
+      currentLevel = newStage + 1;
+      const th = STAGES[Math.min(newStage, STAGES.length - 1)];
+      levelValEl.textContent = 'Lv.' + currentLevel;
+      stageValEl.textContent = th.name;
+      announce(th.icon + ' ' + th.name, 'Lv.' + currentLevel + ' · 速度提升！', 2000);
+      playSfx('levelup');
+      Music.queue(Math.min(newStage, SONGS.length - 1));
+    }
+
+    function updateEvents() {
+      const lead = leadKm();
+      // Stage / level
+      const st = (!ultraMode)
+        ? Math.min(6, Math.floor(distKm / 6))
+        : 7 + Math.floor((distKm - MARATHON) / 6);
+      if (st !== stageIdx) onStageChange(st);
+
+      // Km signs + pace toast
+      while (kmSignSpawned + 1 <= distKm + lead && (ultraMode || kmSignSpawned + 1 < MARATHON)) {
+        kmSignSpawned += 1;
+        spawnKmSign(kmSignSpawned);
+      }
+      const kmInt = Math.floor(distKm);
+      if (kmInt > lastKmInt) {
+        const pace = (simTime - lastKmSim) / (kmInt - lastKmInt);
+        lastKmSim = simTime; lastKmInt = kmInt;
+        showBonusPopup('📍 ' + kmInt + 'K · 配速 ' + fmtPace(pace), 'bg-blue-600/90 text-white');
+        playSfx('km');
+      }
+
+      const nearFinish = !ultraMode && distKm > MARATHON - 1.0;
+
+      // Hills
+      if (hillState === 'none' && !nearFinish && distKm >= nextHillKm - 0.4) {
+        hillType = Math.random() < 0.55 ? 'up' : 'down';
+        hillState = 'warn';
+        spawnHillSign(hillType === 'up');
+        announce(hillType === 'up' ? '⛰️ 前方上坡' : '🎢 前方下坡', hillType === 'up' ? '速度變慢 · 穩住配速' : '速度變快 · 小心障礙', 1500);
+        playSfx('warn');
+      } else if (hillState === 'warn' && distKm >= nextHillKm) {
+        hillState = hillType;
+        hillEndKm = nextHillKm + 0.6 + Math.random() * 0.7;
+        slopeTarget = hillType === 'up' ? 0.8 : 1.2;
+        updateSlopeUI();
+      } else if ((hillState === 'up' || hillState === 'down') && distKm >= hillEndKm) {
+        hillState = 'none';
+        slopeTarget = 1;
+        nextHillKm = hillEndKm + 1.6 + Math.random() * 2.4;
+        updateSlopeUI();
+      }
+
+      // Water stations every 10K
+      const stKm = nextStationIdx * 10;
+      if (nextStationIdx <= 4 || ultraMode) {
+        if (!stationAnnounced && distKm >= stKm - 0.35) {
+          stationAnnounced = true;
+          announce('🥤 前方補給站', '補給品大放送！', 1500);
+          nextTentKm = stKm - lead;
+          stationActiveUntil = stKm + 0.5;
+        }
+        if (stationAnnounced && distKm >= nextTentKm && nextTentKm < stationActiveUntil - lead) {
+          spawnStationTent(nextTentKm === stKm - lead);
+          nextTentKm += 0.14;
+        }
+        if (stationAnnounced && distKm > stationActiveUntil) {
+          nextStationIdx += 1;
+          stationAnnounced = false;
+        }
+      }
+
+      // Cheer squads
+      if (distKm >= nextCheerKm && !nearFinish) {
+        spawnCheerSquad();
+        nextCheerKm = distKm + 1.8 + Math.random() * 2.2;
+      }
+
+      // Finish arch
+      if (!ultraMode && !finishSpawned && distKm >= MARATHON - lead) {
+        finishSpawned = true;
+        spawnFinishArch();
+        announce('🏁 終點就在前方！', '衝啊！', 1500);
+      }
+    }
 
     function animate(now) {
       requestAnimationFrame(animate);
       const dt = Math.min(0.05, (now - lastNow) / 1000);
       lastNow = now;
 
-      // Smooth Camera Damping
+      // Camera damping
       camState.theta += (camState.thetaGoal - camState.theta) * 0.1;
       camState.phi += (camState.phiGoal - camState.phi) * 0.1;
       camState.radius += (camState.radiusGoal - camState.radius) * 0.1;
       camState.target.lerp(camState.targetGoal, 0.1);
       updateCameraImmediate();
 
-      const active = isPlaying && !isGameOver;
-      const newLevel = 1 + Math.floor(score / 1200);
-      if (active && newLevel > currentLevel) {
-        currentLevel = newLevel;
-        levelValEl.textContent = 'Lv.' + currentLevel;
-        showBonusPopup('🔥 Lv.' + currentLevel + ' 速度提升!');
-        playSfx('levelup');
-      }
-
+      const active = phase === 'running';
       const difficultyBoost = 1 + Math.min(1.0, (currentLevel - 1) * 0.08);
-      const effectiveSpeed = animSpeed * difficultyBoost;
-      const runWorldSpeed = 4.6 * effectiveSpeed;
 
       if (active) {
-        clockTime += dt * effectiveSpeed;
-        score += dt * 15 * effectiveSpeed;
-        scoreValEl.textContent = Math.floor(score);
+        // Slope easing
+        slopeFactor += (slopeTarget - slopeFactor) * Math.min(1, dt * 1.5);
+        const tiltGoal = hillState === 'up' ? -0.085 : hillState === 'down' ? 0.085 : 0;
+        slopeTilt += (tiltGoal - slopeTilt) * Math.min(1, dt * 1.2);
+        world.rotation.x = slopeTilt;
+        Music.tempoMul = (1 + (currentLevel - 1) * 0.025) * (0.88 + (slopeFactor - 0.8) * 0.6);
 
-        // Jump Physics
+        const effectiveSpeed = animSpeed * difficultyBoost * slopeFactor;
+        const runWorldSpeed = 4.6 * effectiveSpeed;
+        const ds = dt * runWorldSpeed;
+
+        clockTime += dt * effectiveSpeed;
+        gameTime += dt;
+        const prevDist = distKm, prevSim = simTime;
+        distKm += dt * KM_PER_SEC * animSpeed * slopeFactor;
+        simTime = gameTime * SIM_SCALE;
+        score += dt * 15 * effectiveSpeed * comboMult;
+
+        // Finish line
+        if (!ultraMode && prevDist < MARATHON && distKm >= MARATHON) {
+          const frac = (MARATHON - prevDist) / (distKm - prevDist);
+          const finishSim = prevSim + (simTime - prevSim) * frac;
+          distKm = MARATHON; simTime = finishSim;
+          triggerFinish(finishSim);
+        }
+
+        // Jump / slide physics
         if (!isGrounded) {
           jumpY += jumpVel * dt;
           jumpVel += GRAVITY * dt;
           if (jumpY <= 0) {
-            jumpY = 0;
-            jumpVel = 0;
-            isGrounded = true;
-            jumpCount = 0;
+            jumpY = 0; jumpVel = 0; isGrounded = true; jumpCount = 0;
+            if (slideQueued) { slideQueued = false; startSlide(); }
           }
         }
+        if (isSliding) {
+          slideTimer -= dt;
+          if (slideTimer <= 0) isSliding = false;
+        }
+        if (invulnTimer > 0) {
+          invulnTimer -= dt;
+          runner.visible = invulnTimer <= 0 || Math.floor(invulnTimer * 14) % 2 === 0;
+        }
 
-        // Progressive Obstacle Spawning (faster & harder varieties at higher levels)
+        updateEvents();
+
+        // Obstacle spawning
+        const inStation = stationAnnounced && distKm >= nextStationIdx * 10 - 0.1;
+        const stopSpawning = !ultraMode && distKm > MARATHON - leadKm() - 0.12;
         spawnTimer -= dt * effectiveSpeed;
-        if (spawnTimer <= 0) {
+        if (spawnTimer <= 0 && !stopSpawning) {
           const r = Math.random();
-          if (currentLevel >= 5 && r < 0.25) {
-            createObstacle('tall_hurdle');
-          } else if (currentLevel >= 3 && r < 0.50) {
-            createObstacle('double_cone');
+          const overheadP = distKm < 1.2 ? 0 : (currentLevel >= 2 ? 0.28 : 0.18);
+          if (r < overheadP) {
+            createObstacle(Math.random() < 0.5 ? 'arch' : 'banner');
+            if (!firstOverheadShown) { firstOverheadShown = true; announce('⬇️ 按「滑行」鑽過去！', '拱門和布條要用滑行通過', 1800); }
           } else {
-            createObstacle(r < 0.78 ? 'cone' : 'hurdle');
+            const r2 = Math.random();
+            if (currentLevel >= 5 && r2 < 0.25) createObstacle('tall_hurdle');
+            else if (currentLevel >= 3 && r2 < 0.5) createObstacle('double_cone');
+            else createObstacle(r2 < 0.78 ? 'cone' : 'hurdle');
           }
           const minGap = Math.max(0.75, 1.38 - (currentLevel - 1) * 0.05);
           const randGap = Math.max(0.35, 0.90 - (currentLevel - 1) * 0.035);
-          spawnTimer = minGap + Math.random() * randGap;
+          spawnTimer = (minGap + Math.random() * randGap) * (inStation ? 2.4 : 1);
         }
 
-        // Move Obstacles & Check Collisions
+        // Obstacles: move & collide
         for (let i = obstacles.length - 1; i >= 0; i--) {
           const ob = obstacles[i];
-          ob.group.position.z -= dt * runWorldSpeed;
-
-          // Collision Check around z = 0
-          if (Math.abs(ob.group.position.z) < ob.hitRadiusZ + 0.18) {
-            if (jumpY < ob.hitHeight - 0.12) {
-              triggerGameOver();
-              break;
+          ob.group.position.z -= ds;
+          const z = ob.group.position.z;
+          if (!ob.hit && !ob.passed && Math.abs(z) < ob.hitRadiusZ + 0.18 && invulnTimer <= 0) {
+            const collide = ob.overhead ? !isSliding : (jumpY < ob.hitHeight - 0.12);
+            if (collide) {
+              if (hasShield) {
+                hasShield = false;
+                ob.hit = true;
+                ob.group.visible = false;
+                invulnTimer = 1.0;
+                comboStreak = 0; comboMult = 1; updateComboUI();
+                shieldBadge.classList.add('hidden');
+                bubble.userData.burst = 0.4;
+                showBonusPopup('🛡️ 護盾擋下了！連擊歸零', 'bg-sky-400/90 text-slate-950');
+                playSfx('shieldbreak');
+              } else {
+                triggerGameOver();
+                break;
+              }
             }
           }
-
-          // Passed obstacle safely
-          if (!ob.passed && ob.group.position.z < -0.5) {
+          if (!ob.passed && !ob.hit && z < -0.5) {
             ob.passed = true;
             dodgedCount += 1;
-            score += 50;
-            dodgeValEl.textContent = dodgedCount;
-            scoreValEl.textContent = Math.floor(score);
-            playSfx('dodge');
+            comboStreak += 1;
+            maxCombo = Math.max(maxCombo, comboStreak);
+            const newMult = Math.min(3, 1 + 0.5 * Math.floor(comboStreak / 5));
+            addPoints(50);
+            if (newMult > comboMult) {
+              comboMult = newMult;
+              showBonusPopup('🔥 ×' + comboMult.toFixed(1) + ' COMBO!', 'bg-orange-500/90 text-slate-950');
+              playSfx('combo');
+            } else playSfx('dodge');
+            updateComboUI();
           }
-
-          // Remove far behind
-          if (ob.group.position.z < -16) {
-            scene.remove(ob.group);
-            obstacles.splice(i, 1);
-          }
+          if (z < -16) { world.remove(ob.group); obstacles.splice(i, 1); }
         }
+        if (phase !== 'running' && phase !== 'finished') { renderer.render(scene, camera); return; }
 
-        // Supply Spawning (avoid spawning right on top of a new obstacle)
+        // Supplies & shield spawning
         supplyTimer -= dt * effectiveSpeed;
         if (supplyTimer <= 0) {
-          const tooCloseToObs = obstacles.some((ob) => ob.group.position.z > 12.2);
-          if (!tooCloseToObs) {
-            createSupply();
-            supplyTimer = 2.0 + Math.random() * 1.6;
-          } else {
-            supplyTimer = 0.45;
-          }
+          const tooClose = obstacles.some((ob) => ob.group.position.z > SPAWN_Z - 2.3);
+          if (!tooClose) {
+            createSupply(inStation && Math.random() < 0.6);
+            supplyTimer = inStation ? 0.35 + Math.random() * 0.3 : 2.0 + Math.random() * 1.6;
+          } else supplyTimer = 0.3;
+        }
+        shieldTimer -= dt;
+        if (shieldTimer <= 0) {
+          const tooClose = obstacles.some((ob) => ob.group.position.z > SPAWN_Z - 2.3);
+          if (hasShield) shieldTimer = 8;
+          else if (tooClose) shieldTimer = 0.3;
+          else { createShieldItem(); shieldTimer = 30 + Math.random() * 10; }
         }
 
-        // Move & Collect Supplies
         for (let i = supplies.length - 1; i >= 0; i--) {
           const sp = supplies[i];
-          sp.group.position.z -= dt * runWorldSpeed;
+          sp.group.position.z -= ds;
           sp.group.rotation.y += dt * 3.2;
           sp.group.position.y = sp.baseY + Math.sin(clockTime * 4 + sp.phase) * 0.08;
-
-          // Collection check against runner center
-          const runnerCenterY = jumpY + 0.78;
+          const runnerCenterY = (isSliding ? 0.3 : 0.78) + jumpY;
           if (Math.abs(sp.group.position.z) < 0.55 && Math.abs(runnerCenterY - sp.baseY) < 0.85) {
-            score += sp.points;
-            supplyCount += 1;
-            scoreValEl.textContent = Math.floor(score);
-            supplyValEl.textContent = supplyCount;
-            showBonusPopup(sp.label);
-            playSfx('supply');
-            scene.remove(sp.group);
+            if (sp.kind === 'shield') {
+              hasShield = true;
+              shieldBadge.classList.remove('hidden');
+              showBonusPopup('🛡️ 取得護盾！', 'bg-sky-400/90 text-slate-950');
+              playSfx('shield');
+            } else {
+              const p = addPoints(sp.points);
+              supplyCount += 1;
+              showBonusPopup('+' + p + ' ' + sp.label + (comboMult > 1 ? ' ×' + comboMult.toFixed(1) : ''));
+              playSfx('supply');
+            }
+            world.remove(sp.group);
             supplies.splice(i, 1);
             continue;
           }
-
-          if (sp.group.position.z < -16) {
-            scene.remove(sp.group);
-            supplies.splice(i, 1);
-          }
+          if (sp.group.position.z < -16) { world.remove(sp.group); supplies.splice(i, 1); }
         }
 
-        // Scroll Road, Leaves, Trees, Pampas Grass, Bokeh backward (-Z)
-        roadTex.offset.y += (dt * runWorldSpeed) / 4.0;
-
-        roadLeaves.forEach((leaf) => {
-          leaf.position.z -= dt * runWorldSpeed;
-          if (leaf.position.z < -18) {
-            leaf.position.z = 8 + Math.random() * 4;
-            leaf.position.x = (Math.random() - 0.5) * 6.4;
+        // Props
+        for (let i = props.length - 1; i >= 0; i--) {
+          const pr = props[i];
+          pr.group.position.z -= ds;
+          if (!pr.passed && pr.group.position.z < 0) { pr.passed = true; if (pr.onPass) pr.onPass(); }
+          if (pr.group.userData.fans) {
+            pr.group.userData.fans.forEach((f) => {
+              const w = Math.sin(clockTime * 12 + f.phase);
+              f.armL.rotation.z = 2.4 + w * 0.4;
+              f.armR.rotation.z = -2.4 - w * 0.4;
+              f.armL.position.y = 1.2; f.armR.position.y = 1.2;
+              f.fan.position.y = Math.max(0, w) * 0.12;
+            });
           }
-        });
-
-        bgTrees.forEach((tree) => {
-          tree.position.z -= dt * runWorldSpeed * 0.85;
-          if (tree.position.z < -22) {
-            tree.position.z = 11 + Math.random() * 4;
-          }
-        });
-
-        pampasClusters.forEach((p) => {
-          p.group.position.z -= dt * runWorldSpeed;
-          if (p.group.position.z < -16) {
-            p.group.position.z = 10 + Math.random() * 4;
-          }
-        });
-
-        const posArr = bokehGeo.attributes.position.array;
-        for (let i = 0; i < bokehCount; i++) {
-          posArr[i * 3 + 2] -= dt * runWorldSpeed * 0.5;
-          if (posArr[i * 3 + 2] < -14) {
-            posArr[i * 3 + 2] = 9 + Math.random() * 3;
-          }
+          if (pr.group.position.z < -18) { world.remove(pr.group); props.splice(i, 1); }
         }
-        bokehGeo.attributes.position.needsUpdate = true;
+
+        moveScenery(ds);
+
+        // Theme easing
+        applyTheme(STAGES[Math.min(stageIdx, STAGES.length - 1)], Math.min(1, dt * 0.9));
+
+        // HUD (throttled)
+        hudTimer -= dt;
+        if (hudTimer <= 0) {
+          hudTimer = 0.08;
+          scoreValEl.textContent = Math.floor(score);
+          distValEl.textContent = distKm.toFixed(2);
+          timeValEl.textContent = fmtTime(simTime);
+        }
+      } else if (phase === 'ready') {
+        clockTime += dt * 0.55;
       }
 
-      // Runner Pose Kinematics (Running vs Airborne Jump Pose)
+      // ===== Runner pose =====
       const cycle = clockTime * 6.5;
       const stride = Math.sin(cycle);
       const strideOpp = Math.sin(cycle + Math.PI);
+      const lean = hillState === 'up' ? 0.22 : hillState === 'down' ? -0.08 : 0;
 
-      if (!isGrounded) {
+      if (isSliding) {
+        hipGroup.position.y = 0.46;
+        torsoGroup.rotation.x = -0.95;
+        torsoGroup.rotation.y = 0;
+        headGroup.rotation.y = 0;
+        rightArm.shoulder.rotation.x = -0.9; rightArm.shoulder.rotation.z = -0.6; rightArm.elbow.rotation.x = -0.3;
+        leftArm.shoulder.rotation.x = -0.9; leftArm.shoulder.rotation.z = 0.6; leftArm.elbow.rotation.x = -0.3;
+        rightLeg.hip.rotation.x = -1.35; rightLeg.knee.rotation.x = 0.15;
+        leftLeg.hip.rotation.x = -1.1; leftLeg.knee.rotation.x = 0.55;
+      } else if (!isGrounded) {
         hipGroup.position.y = 0.92 + jumpY;
         torsoGroup.rotation.x = 0.14;
         torsoGroup.rotation.y = 0;
         headGroup.rotation.y = 0;
-
-        // Raised Power Pros Jump Arms
-        rightArm.shoulder.rotation.x = -2.1;
-        rightArm.shoulder.rotation.z = -0.35;
-        rightArm.elbow.rotation.x = -0.5;
-        leftArm.shoulder.rotation.x = -2.1;
-        leftArm.shoulder.rotation.z = 0.35;
-        leftArm.elbow.rotation.x = -0.5;
-
-        // Tucked Jump Legs
-        rightLeg.hip.rotation.x = -0.65;
-        rightLeg.knee.rotation.x = 1.05;
-        leftLeg.hip.rotation.x = -0.45;
-        leftLeg.knee.rotation.x = 0.95;
+        rightArm.shoulder.rotation.x = -2.1; rightArm.shoulder.rotation.z = -0.35; rightArm.elbow.rotation.x = -0.5;
+        leftArm.shoulder.rotation.x = -2.1; leftArm.shoulder.rotation.z = 0.35; leftArm.elbow.rotation.x = -0.5;
+        rightLeg.hip.rotation.x = -0.65; rightLeg.knee.rotation.x = 1.05;
+        leftLeg.hip.rotation.x = -0.45; leftLeg.knee.rotation.x = 0.95;
       } else {
         hipGroup.position.y = 0.92 + Math.abs(Math.sin(cycle)) * 0.10;
-        torsoGroup.rotation.x = 0.08 + Math.cos(cycle * 2) * 0.02;
+        torsoGroup.rotation.x = 0.08 + lean + Math.cos(cycle * 2) * 0.02;
         torsoGroup.rotation.y = stride * 0.08;
         headGroup.rotation.y = -stride * 0.06;
-
-        rightArm.shoulder.rotation.x = stride * 0.65 - 0.15;
-        rightArm.shoulder.rotation.z = -0.22;
-        rightArm.elbow.rotation.x = -1.35 + stride * 0.15;
-        rightArm.elbow.rotation.z = 0.25;
-
-        leftArm.shoulder.rotation.x = strideOpp * 0.65 - 0.15;
-        leftArm.shoulder.rotation.z = 0.22;
-        leftArm.elbow.rotation.x = -1.35 + strideOpp * 0.15;
-        leftArm.elbow.rotation.z = -0.25;
-
+        rightArm.shoulder.rotation.x = stride * 0.65 - 0.15; rightArm.shoulder.rotation.z = -0.22;
+        rightArm.elbow.rotation.x = -1.35 + stride * 0.15; rightArm.elbow.rotation.z = 0.25;
+        leftArm.shoulder.rotation.x = strideOpp * 0.65 - 0.15; leftArm.shoulder.rotation.z = 0.22;
+        leftArm.elbow.rotation.x = -1.35 + strideOpp * 0.15; leftArm.elbow.rotation.z = -0.25;
         rightLeg.hip.rotation.x = strideOpp * 0.58 - 0.1;
         rightLeg.knee.rotation.x = Math.max(0.08, Math.sin(cycle + 0.8) * 0.95 + 0.45);
-
         leftLeg.hip.rotation.x = stride * 0.58 - 0.1;
         leftLeg.knee.rotation.x = Math.max(0.08, Math.sin(cycle + Math.PI + 0.8) * 0.95 + 0.45);
       }
 
-      // Ground Shadow Scales Down When Airborne
       const shadowScale = Math.max(0.35, (1.0 - Math.abs(Math.sin(cycle)) * 0.12) * (1.0 - jumpY * 0.28));
       shadowDisc.scale.set(shadowScale, shadowScale, 1);
 
-      // Swaying Pampas Grass
+      // Shield bubble
+      if (hasShield || (bubble.userData.burst || 0) > 0) {
+        bubble.visible = true;
+        bubble.position.set(0, hipGroup.position.y + (isSliding ? 0.1 : 0.45), 0);
+        if (!hasShield) {
+          bubble.userData.burst -= dt;
+          const k = 1 - Math.max(0, bubble.userData.burst) / 0.4;
+          bubble.scale.setScalar(1 + k * 0.8);
+          bubbleMat.opacity = 0.35 * (1 - k);
+          if (bubble.userData.burst <= 0) { bubble.visible = false; bubble.scale.setScalar(1); bubbleMat.opacity = 0.16; }
+        } else {
+          bubble.scale.setScalar(1 + Math.sin(clockTime * 5) * 0.04);
+          bubbleMat.opacity = 0.15 + Math.sin(clockTime * 3) * 0.04;
+        }
+      }
+
       pampasClusters.forEach((p) => {
         p.group.rotation.z = p.baseRotZ + Math.sin(clockTime * 1.8 + p.phase) * 0.06;
       });
-
       bokehPoints.position.y = Math.sin(clockTime * 0.9) * 0.15;
+      stars.rotation.y += dt * 0.01;
 
       renderer.render(scene, camera);
     }
@@ -1350,6 +2141,11 @@
     }
     window.addEventListener('resize', resizeView);
     if (window.ResizeObserver) new ResizeObserver(resizeView).observe(container);
+
+    // Initial UI state
+    setMusicOn(true);
+    setSfxOn(true);
+    setPlayUI();
   </script>
 </body>
 </html>
