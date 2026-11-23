@@ -23,21 +23,18 @@
       width: 100%;
       min-height: 0;
       position: relative;
-      cursor: grab;
+      cursor: pointer;
       touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
     }
     #canvas-container > canvas {
       position: absolute;
       inset: 0;
       display: block;
     }
-    #jump-wrap {
-      bottom: calc(1.25rem + env(safe-area-inset-bottom));
-      right: calc(1.25rem + env(safe-area-inset-right));
-    }
-    #canvas-container:active {
-      cursor: grabbing;
-    }
+
   </style>
 </head>
 <body class="flex flex-col">
@@ -110,16 +107,9 @@
 
     <!-- Bottom Hint -->
     <div class="pointer-events-none absolute bottom-5 left-4 z-10 bg-slate-900/75 backdrop-blur border border-slate-700/70 rounded-xl px-3 py-2 text-xs text-slate-300 hidden sm:block">
-      按 <kbd class="px-1.5 py-0.5 rounded bg-slate-700 text-white font-mono">空白鍵</kbd> 或右側按鈕跳躍（支援二段跳）· 難度隨分數持續提升
+      點擊畫面或按 <kbd class="px-1.5 py-0.5 rounded bg-slate-700 text-white font-mono">空白鍵</kbd> 跳躍（支援二段跳）· 難度隨分數持續提升
     </div>
 
-    <!-- Dedicated Jump Button (Bottom Right / Center on mobile) -->
-    <div id="jump-wrap" class="absolute z-20 flex items-center gap-2">
-      <button id="btn-jump" class="px-7 py-4 rounded-2xl bg-gradient-to-b from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 active:scale-95 text-slate-950 font-black text-base sm:text-lg shadow-[0_6px_0_#b45309,0_12px_24px_rgba(0,0,0,0.45)] active:shadow-[0_2px_0_#b45309] active:translate-y-1 transition-all select-none flex items-center gap-2 border border-amber-200/60">
-        <span>⬆️</span>
-        <span>跳躍 JUMP</span>
-      </button>
-    </div>
 
     <!-- Game Over Overlay -->
     <div id="gameover-overlay" class="hidden absolute inset-0 z-30 bg-slate-950/65 backdrop-blur-sm flex items-center justify-center p-4">
@@ -157,7 +147,6 @@
     const playLabel = document.getElementById('play-label');
     const btnMute = document.getElementById('btn-mute');
     const btnWire = document.getElementById('btn-wire');
-    const btnJump = document.getElementById('btn-jump');
     const btnRestart = document.getElementById('btn-restart');
     const gameoverOverlay = document.getElementById('gameover-overlay');
     const scoreValEl = document.getElementById('score-val');
@@ -303,21 +292,13 @@
     }
     updateCameraImmediate();
 
+    // Tap / click anywhere on the game screen to jump
     container.addEventListener('pointerdown', (e) => {
-      camState.dragging = true;
-      camState.lastX = e.clientX;
-      camState.lastY = e.clientY;
+      if (e.target.closest('#gameover-overlay')) return;
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      e.preventDefault();
+      triggerJump();
     });
-    window.addEventListener('pointermove', (e) => {
-      if (!camState.dragging) return;
-      const dx = e.clientX - camState.lastX;
-      const dy = e.clientY - camState.lastY;
-      camState.lastX = e.clientX;
-      camState.lastY = e.clientY;
-      camState.thetaGoal -= dx * 0.008;
-      camState.phiGoal = Math.max(0.35, Math.min(1.62, camState.phiGoal - dy * 0.006));
-    });
-    window.addEventListener('pointerup', () => { camState.dragging = false; });
     container.addEventListener('wheel', (e) => {
       e.preventDefault();
       camState.radiusGoal = Math.max(2.6, Math.min(15, camState.radiusGoal + e.deltaY * 0.005));
@@ -1034,8 +1015,6 @@
       finalDodgedEl.textContent = dodgedCount;
       finalSupplyEl.textContent = supplyCount;
       gameoverOverlay.classList.remove('hidden');
-      btnJump.disabled = true;
-      btnJump.classList.add('opacity-50', 'pointer-events-none');
     }
 
     function restartGame() {
@@ -1062,15 +1041,9 @@
       playLabel.textContent = '跑步中';
 
       gameoverOverlay.classList.add('hidden');
-      btnJump.disabled = false;
-      btnJump.classList.remove('opacity-50', 'pointer-events-none');
     }
 
     // Controls Listeners
-    btnJump.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      triggerJump();
-    });
     btnRestart.addEventListener('click', restartGame);
 
     window.addEventListener('keydown', (e) => {
