@@ -95,7 +95,7 @@
   <!-- 3D Viewport -->
   <div id="canvas-container" class="flex-1 relative">
     <!-- HUD -->
-    <div class="pointer-events-none absolute top-2.5 left-2.5 right-2.5 z-10 flex flex-col gap-1.5">
+    <div id="hud" class="pointer-events-none absolute top-2.5 left-2.5 right-2.5 z-10 flex flex-col gap-1.5">
       <div class="flex items-stretch gap-1.5 flex-wrap">
         <div class="hud-box">
           <div class="hud-label">分數</div>
@@ -168,12 +168,32 @@
             class="mt-1 w-full rounded-xl bg-slate-800 border border-slate-600 focus:border-emerald-400 focus:outline-none px-3 py-2.5 text-base text-white placeholder-slate-500" />
           <span id="name-error" class="hidden text-xs font-bold text-rose-400 mt-1 block">請先輸入姓名再開跑</span>
         </label>
+        <div id="look-row" class="hidden flex items-center justify-between gap-2 mb-3 rounded-xl bg-slate-800/70 border border-slate-700/60 px-3 py-2 text-left">
+          <span id="look-text" class="text-xs text-slate-300"></span>
+          <button id="btn-dress" class="shrink-0 text-xs font-bold px-2.5 py-1.5 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-500/40">👕 變更服裝</button>
+        </div>
         <div class="grid grid-cols-3 gap-2 mb-4">
           <div class="rec-box"><div class="rec-label">最高分</div><div id="rec-score" class="rec-num text-amber-300">0</div></div>
           <div class="rec-box"><div class="rec-label">最遠距離</div><div id="rec-dist" class="rec-num text-sky-300">0K</div></div>
           <div class="rec-box"><div class="rec-label">最佳完賽</div><div id="rec-time" class="rec-num text-emerald-300">—</div></div>
         </div>
         <button id="btn-start" class="w-full py-3.5 rounded-xl bg-gradient-to-b from-emerald-400 to-emerald-600 hover:from-emerald-300 text-slate-950 font-black text-lg transition shadow-[0_5px_0_#065f46] active:translate-y-1 active:shadow-[0_1px_0_#065f46]">▶ 開始跑</button>
+      </div>
+    </div>
+
+    <!-- Customize Overlay -->
+    <div id="custom-overlay" class="hidden absolute z-30 inset-x-0 bottom-0 max-h-[58%] sm:inset-x-auto sm:right-0 sm:top-0 sm:bottom-0 sm:w-[24rem] sm:max-h-none flex flex-col bg-slate-900/95 backdrop-blur border-t sm:border-t-0 sm:border-l border-slate-700 rounded-t-2xl sm:rounded-none shadow-2xl">
+      <div class="flex items-center justify-between px-4 pt-3 pb-2">
+        <div>
+          <div class="text-base font-black text-white">👕 選手造型</div>
+          <div id="custom-name" class="text-xs text-slate-400"></div>
+        </div>
+        <button id="btn-random" class="text-xs font-bold px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-200">🎲 隨機</button>
+      </div>
+      <div id="custom-options" class="flex-1 overflow-y-auto px-4 pb-2 space-y-2.5"></div>
+      <div class="grid grid-cols-2 gap-2 p-3 border-t border-slate-700">
+        <button id="btn-custom-cancel" class="py-2.5 rounded-xl bg-slate-800 border border-slate-600 text-slate-200 font-bold text-sm">返回</button>
+        <button id="btn-custom-save" class="py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm">✅ 儲存</button>
       </div>
     </div>
 
@@ -199,6 +219,7 @@
           <div id="over-lb" class="rounded-xl border border-slate-700/70 bg-slate-800/60 overflow-hidden text-xs"></div>
         </div>
         <button id="btn-restart" class="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm transition shadow-lg">🔄 再跑一次</button>
+        <button id="btn-over-dress" class="mt-2 w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold text-xs">👕 變更服裝</button>
       </div>
     </div>
 
@@ -222,6 +243,7 @@
           <button id="btn-ultra" class="py-3 rounded-xl bg-gradient-to-b from-fuchsia-500 to-purple-600 text-white font-black text-sm shadow-lg">🔥 繼續跑超馬</button>
           <button id="btn-finish-restart" class="py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm shadow-lg">🔄 再跑一次</button>
         </div>
+        <button id="btn-finish-dress" class="mt-2 w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold text-xs">👕 變更服裝</button>
       </div>
     </div>
   </div>
@@ -1706,6 +1728,7 @@
 
     function startRun() {
       if (!readPlayerName()) return;
+      applyLook(getLook(playerName) || LOOK_DEFAULT);
       ensureAudio();
       resetGame();
       startOverlay.classList.add('hidden');
@@ -1804,6 +1827,296 @@
         .catch((err) => { el.innerHTML = '<div class="p-3 text-center text-rose-300">排行榜暫時無法連線（' + escapeHtml(err) + '）<br>成績已存在這台裝置的個人紀錄。</div>'; });
     }
 
+    // ===== Runner customization (per player, saved on this device) =====
+    const LOOK_KEY = 'marathon_517_looks';
+    const LOOK_DEFAULT = { gender: 'm', skin: '#f7cba8', hair: 'short', hairColor: '#1e293b', hat: 'white', glasses: 'white', outfit: 'taiwan', shorts: '#1e2f63', shoes: '#22c55e' };
+    const LOOK_OPTIONS = [
+      { key: 'gender', label: '性別', type: 'chip', items: [['m', '男'], ['f', '女']] },
+      { key: 'skin', label: '膚色', type: 'color', items: ['#f7cba8', '#e0ac7e', '#b87a4b', '#8a5a3b'] },
+      { key: 'hair', label: '髮型', type: 'chip', items: [['short', '短髮'], ['spiky', '刺蝟頭'], ['ponytail', '馬尾'], ['bun', '丸子頭'], ['twin', '雙馬尾']] },
+      { key: 'hairColor', label: '髮色', type: 'color', items: ['#1e293b', '#6b3f1f', '#e5b84b', '#b91c1c', '#2563eb', '#f472b6', '#e5e7eb'] },
+      { key: 'hat', label: '帽子', type: 'chip', items: [['white', '白色跑帽'], ['black', '黑色跑帽'], ['band', '頭帶'], ['none', '不戴']] },
+      { key: 'glasses', label: '眼鏡', type: 'chip', items: [['white', '白框墨鏡'], ['black', '黑框墨鏡'], ['mirror', '炫彩鏡片'], ['none', '不戴']] },
+      { key: 'outfit', label: '上衣', type: 'chip', items: [['taiwan', '台灣漸層'], ['red', '紅色'], ['yellow', '螢光黃'], ['green', '綠色'], ['black', '黑色'], ['pink', '粉紅']] },
+      { key: 'shorts', label: '短褲', type: 'color', items: ['#1e2f63', '#111827', '#b91c1c', '#e5e7eb', '#6b7280', '#0f766e'] },
+      { key: 'shoes', label: '跑鞋', type: 'color', items: ['#22c55e', '#f97316', '#ec4899', '#3b82f6', '#f1f5f9', '#1f2937', '#facc15'] }
+    ];
+
+    // Extra head / hair parts
+    const eyeMat = regMat(new THREE.MeshStandardMaterial({ color: '#1f2937', roughness: 0.3 }));
+    const cheekMat = regMat(new THREE.MeshStandardMaterial({ color: '#fda4af', roughness: 0.8 }));
+    const bandMat = regMat(new THREE.MeshStandardMaterial({ color: '#ef4444', roughness: 0.6 }));
+    const hairTieMat = regMat(new THREE.MeshStandardMaterial({ color: '#ec4899', roughness: 0.5 }));
+    const eyes = [], lashes = [], cheeks = [];
+    [-1, 1].forEach((sd) => {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.04, 10, 10), eyeMat);
+      eye.scale.set(0.8, 1.15, 0.5);
+      eye.position.set(sd * 0.12, 0.02, 0.3);
+      headGroup.add(eye); eyes.push(eye);
+      const lash = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.015, 0.02), eyeMat);
+      lash.position.set(sd * 0.125, 0.075, 0.305);
+      lash.rotation.z = sd * -0.25;
+      headGroup.add(lash); lashes.push(lash);
+      const cheek = new THREE.Mesh(new THREE.SphereGeometry(0.045, 10, 10), cheekMat);
+      cheek.scale.set(1, 0.6, 0.3);
+      cheek.position.set(sd * 0.2, -0.07, 0.265);
+      headGroup.add(cheek); cheeks.push(cheek);
+    });
+    const spikes = new THREE.Group();
+    for (let i = 0; i < 9; i++) {
+      const a = (i / 9) * Math.PI * 1.6 - Math.PI * 0.3;
+      const sp = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.24, 6), hairMat);
+      sp.position.set(Math.sin(a) * 0.18, 0.3, Math.cos(a) * 0.1 - 0.06);
+      sp.rotation.set(-0.35 + Math.cos(a) * 0.2, 0, -Math.sin(a) * 0.6);
+      spikes.add(sp);
+    }
+    headGroup.add(spikes);
+    function hairTail(len, r0) {
+      const g = new THREE.Group();
+      const tie = new THREE.Mesh(new THREE.TorusGeometry(r0 * 0.9, 0.018, 6, 12), hairTieMat);
+      tie.rotation.x = Math.PI / 2;
+      g.add(tie);
+      for (let i = 0; i < len; i++) {
+        const seg = new THREE.Mesh(new THREE.SphereGeometry(r0 * (1 - i * 0.13), 10, 8), hairMat);
+        seg.scale.set(1, 1.35, 1);
+        seg.position.y = -0.06 - i * 0.1;
+        g.add(seg);
+      }
+      return g;
+    }
+    const ponytail = hairTail(5, 0.085);
+    ponytail.position.set(0, 0.12, -0.31);
+    headGroup.add(ponytail);
+    const bun = new THREE.Group();
+    const bunBall = new THREE.Mesh(new THREE.SphereGeometry(0.13, 14, 12), hairMat);
+    bun.add(bunBall);
+    const bunTie = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.018, 6, 14), hairTieMat);
+    bunTie.position.z = 0.06;
+    bun.add(bunTie);
+    bun.position.set(0, 0.22, -0.32);
+    headGroup.add(bun);
+    const twins = [-1, 1].map((sd) => {
+      const t = hairTail(4, 0.07);
+      t.position.set(sd * 0.3, 0.06, -0.14);
+      headGroup.add(t);
+      return t;
+    });
+    const headband = new THREE.Mesh(new THREE.TorusGeometry(0.335, 0.045, 8, 28), bandMat);
+    headband.rotation.x = Math.PI / 2;
+    headband.position.y = 0.12;
+    headGroup.add(headband);
+    const smileMat = smile.material;
+
+    // Outfit textures
+    const OUTFITS = {
+      red:    { base: '#dc2626', band: '#fca5a5', text: '#ffffff' },
+      yellow: { base: '#e2f84a', band: '#bef264', text: '#1e293b' },
+      green:  { base: '#16a34a', band: '#86efac', text: '#ffffff' },
+      black:  { base: '#111827', band: '#f97316', text: '#f8fafc' },
+      pink:   { base: '#f472b6', band: '#fbcfe8', text: '#831843' }
+    };
+    const outfitCache = {};
+    function outfitTexture(style) {
+      if (outfitCache[style]) return outfitCache[style];
+      if (style === 'taiwan' || !OUTFITS[style]) return (outfitCache.taiwan = outfitCache.taiwan || singletMat.map);
+      const o = OUTFITS[style];
+      const c = document.createElement('canvas');
+      c.width = 512; c.height = 512;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = o.base;
+      ctx.fillRect(0, 0, 512, 512);
+      ctx.fillStyle = o.band;
+      ctx.beginPath();
+      ctx.moveTo(0, 300); ctx.lineTo(512, 200); ctx.lineTo(512, 250); ctx.lineTo(0, 350);
+      ctx.fill();
+      ctx.fillStyle = o.text;
+      ctx.font = '900 18px Inter, sans-serif';
+      ctx.fillText('RUNNER', 66, 118);
+      ctx.fillText('FROM', 66, 138);
+      ctx.fillText('TAIWAN', 66, 158);
+      const tex = new THREE.CanvasTexture(c);
+      tex.encoding = THREE.sRGBEncoding;
+      outfitCache[style] = tex;
+      return tex;
+    }
+    outfitTexture('taiwan');
+
+    let currentLook = Object.assign({}, LOOK_DEFAULT);
+    function applyLook(cfg) {
+      cfg = Object.assign({}, LOOK_DEFAULT, cfg || {});
+      currentLook = cfg;
+      const female = cfg.gender === 'f';
+      skinMat.color.set(cfg.skin);
+      hairMat.color.set(cfg.hairColor);
+      shortsMat.color.set(cfg.shorts);
+      shoeGreenMat.color.set(cfg.shoes);
+      singletMat.map = outfitTexture(cfg.outfit);
+      singletMat.needsUpdate = true;
+      // Hat
+      capGroup.visible = cfg.hat === 'white' || cfg.hat === 'black';
+      capMat.color.set(cfg.hat === 'black' ? '#111827' : '#ffffff');
+      headband.visible = cfg.hat === 'band';
+      // Glasses
+      glassesGroup.visible = cfg.glasses !== 'none';
+      frameMat.color.set(cfg.glasses === 'black' ? '#111827' : cfg.glasses === 'mirror' ? '#e2e8f0' : '#f8fafc');
+      lensMat.color.set(cfg.glasses === 'mirror' ? '#7c3aed' : '#1e293b');
+      lensMat.emissive.set(cfg.glasses === 'mirror' ? '#2563eb' : '#000000');
+      lensMat.emissiveIntensity = cfg.glasses === 'mirror' ? 0.5 : 0;
+      // Hair
+      const hatOn = capGroup.visible;
+      spikes.visible = cfg.hair === 'spiky' && !hatOn;
+      ponytail.visible = cfg.hair === 'ponytail';
+      bun.visible = cfg.hair === 'bun';
+      twins.forEach((t) => { t.visible = cfg.hair === 'twin'; });
+      // Gender details
+      torsoMesh.scale.set(female ? 0.92 : 1.0, 1.0, female ? 0.8 : 0.84);
+      pelvis.scale.set(female ? 0.94 : 1, 1, female ? 0.94 : 1);
+      rightArm.shoulder.position.x = -(female ? 0.34 : 0.37);
+      leftArm.shoulder.position.x = female ? 0.34 : 0.37;
+      lashes.forEach((l) => { l.visible = female && cfg.glasses === 'none'; });
+      cheeks.forEach((c) => { c.visible = female; });
+      smileMat.color.set(female ? '#be185d' : '#6b3e26');
+    }
+
+    function updateHairSway(cycle, airborne) {
+      const base = airborne ? 0.9 : 0.45;
+      ponytail.rotation.x = base + Math.sin(cycle * 2) * 0.22;
+      ponytail.rotation.z = Math.sin(cycle) * 0.15;
+      twins.forEach((t, i) => {
+        t.rotation.x = base * 0.7 + Math.sin(cycle * 2 + i) * 0.18;
+        t.rotation.z = (i === 0 ? -1 : 1) * (0.25 + Math.sin(cycle * 2) * 0.1);
+      });
+    }
+
+    function loadLooks() { try { return JSON.parse(localStorage.getItem(LOOK_KEY) || '{}') || {}; } catch { return {}; } }
+    function lookKey(name) { return String(name || '').trim().toLowerCase(); }
+    function getLook(name) { const all = loadLooks(); return all[lookKey(name)] || null; }
+    function saveLook(name, cfg) {
+      const all = loadLooks();
+      all[lookKey(name)] = cfg;
+      try { localStorage.setItem(LOOK_KEY, JSON.stringify(all)); } catch {}
+    }
+
+    // Start-screen look row
+    const lookRow = $('look-row'), lookText = $('look-text'), btnDress = $('btn-dress');
+    function updateLookRow() {
+      const name = nameInput.value.trim();
+      if (!name) { lookRow.classList.add('hidden'); applyLook(LOOK_DEFAULT); return; }
+      const saved = getLook(name);
+      lookRow.classList.remove('hidden');
+      lookText.textContent = saved ? '✅ 已套用「' + name.slice(0, 12) + '」上次的造型' : '🆕 新選手：開跑前先挑選造型';
+      btnDress.textContent = saved ? '👕 變更服裝' : '👕 挑選造型';
+      applyLook(saved || LOOK_DEFAULT);
+    }
+    let lookRowTimer = null;
+    nameInput.addEventListener('input', () => { clearTimeout(lookRowTimer); lookRowTimer = setTimeout(updateLookRow, 250); });
+
+    // Customizer panel
+    const customOverlay = $('custom-overlay');
+    const customOptions = $('custom-options');
+    const btnCustomSave = $('btn-custom-save');
+    let customizing = false, customMode = 'edit', draftLook = null;
+
+    function renderCustomOptions() {
+      let html = '';
+      LOOK_OPTIONS.forEach((opt) => {
+        html += '<div><div class="text-xs font-bold text-slate-400 mb-1">' + opt.label + '</div><div class="flex flex-wrap gap-1.5">';
+        opt.items.forEach((it) => {
+          const val = opt.type === 'color' ? it : it[0];
+          const on = draftLook[opt.key] === val;
+          if (opt.type === 'color') {
+            html += '<button data-k="' + opt.key + '" data-v="' + val + '" title="' + val + '" class="w-8 h-8 rounded-full border-2 '
+              + (on ? 'border-emerald-400 ring-2 ring-emerald-400/60' : 'border-slate-600') + '" style="background:' + val + '"></button>';
+          } else {
+            html += '<button data-k="' + opt.key + '" data-v="' + val + '" class="px-3 py-1.5 rounded-lg text-xs font-bold border '
+              + (on ? 'bg-emerald-500 text-slate-950 border-emerald-300' : 'bg-slate-800 text-slate-200 border-slate-600') + '">' + it[1] + '</button>';
+          }
+        });
+        html += '</div></div>';
+      });
+      customOptions.innerHTML = html;
+    }
+    customOptions.addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-k]');
+      if (!b) return;
+      const k = b.dataset.k, v = b.dataset.v;
+      draftLook[k] = v;
+      if (k === 'gender') {
+        if (v === 'f' && (draftLook.hair === 'short' || draftLook.hair === 'spiky')) draftLook.hair = 'ponytail';
+        if (v === 'm' && (draftLook.hair === 'ponytail' || draftLook.hair === 'twin')) draftLook.hair = 'short';
+      }
+      applyLook(draftLook);
+      renderCustomOptions();
+    });
+    $('btn-random').addEventListener('click', () => {
+      LOOK_OPTIONS.forEach((opt) => {
+        const it = opt.items[Math.floor(Math.random() * opt.items.length)];
+        draftLook[opt.key] = opt.type === 'color' ? it : it[0];
+      });
+      applyLook(draftLook);
+      renderCustomOptions();
+    });
+
+    function setCamPreset(p) {
+      camState.thetaGoal = p.theta; camState.phiGoal = p.phi; camState.radiusGoal = p.radius;
+      camState.targetGoal.copy(p.target);
+    }
+    function openCustomizer(mode) {
+      if (!readPlayerName()) return;
+      customMode = mode;
+      draftLook = Object.assign({}, LOOK_DEFAULT, getLook(playerName) || {});
+      applyLook(draftLook);
+      renderCustomOptions();
+      $('custom-name').textContent = playerName + (mode === 'first' ? ' · 第一次參賽，挑一套造型吧！' : ' · 造型會記在這台裝置上');
+      btnCustomSave.textContent = mode === 'first' ? '✅ 儲存並開跑' : '✅ 儲存';
+      [startOverlay, gameoverOverlay, finishOverlay].forEach((el) => el.classList.add('hidden'));
+      customOverlay.classList.remove('hidden');
+      customizing = true;
+      const wide = container.clientWidth >= 640;
+      setCamPreset(wide
+        ? { theta: 0.35, phi: 1.42, radius: 5.4, target: new THREE.Vector3(0, 1.25, 0) }
+        : { theta: 0.35, phi: 1.47, radius: 9.4, target: new THREE.Vector3(0, -0.9, 0) });
+      $('hud').classList.add('hidden');
+    }
+    function closeCustomizer() {
+      customOverlay.classList.add('hidden');
+      customizing = false;
+      $('hud').classList.remove('hidden');
+      setCamPreset(presets.angle);
+      camBtns.forEach((b) => { b.className = 'cam-btn px-2.5 py-1.5 rounded-md ' + (b.dataset.cam === 'angle' ? 'bg-sky-500 text-white' : 'text-slate-300 hover:text-white') + ' font-medium transition'; });
+    }
+    btnCustomSave.addEventListener('click', () => {
+      saveLook(playerName, draftLook);
+      applyLook(draftLook);
+      closeCustomizer();
+      if (customMode === 'first') startRun();
+      else { startOverlay.classList.remove('hidden'); updateLookRow(); }
+    });
+    $('btn-custom-cancel').addEventListener('click', () => {
+      applyLook(getLook(playerName) || LOOK_DEFAULT);
+      closeCustomizer();
+      startOverlay.classList.remove('hidden');
+      updateLookRow();
+    });
+    btnDress.addEventListener('click', () => openCustomizer('edit'));
+    function dressFromEnd() {
+      Music.stop();
+      resetGame();
+      phase = 'ready';
+      setPlayUI();
+      openCustomizer('edit');
+    }
+    $('btn-over-dress').addEventListener('click', dressFromEnd);
+    $('btn-finish-dress').addEventListener('click', dressFromEnd);
+    customOverlay.addEventListener('pointerdown', (e) => e.stopPropagation());
+
+    function onStartClick() {
+      if (!readPlayerName()) return;
+      if (!getLook(playerName)) { openCustomizer('first'); return; }
+      startRun();
+    }
+    updateLookRow();
+
     // ===== 15. Controls =====
     function bindAction(btn, fn) {
       btn.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); fn(); });
@@ -1811,26 +2124,28 @@
     bindAction(btnJump, triggerJump);
     bindAction(btnSlide, triggerSlide);
     [startOverlay, gameoverOverlay, finishOverlay].forEach((el) => el.addEventListener('pointerdown', (e) => e.stopPropagation()));
-    btnStart.addEventListener('click', startRun);
+    btnStart.addEventListener('click', onStartClick);
     btnRestart.addEventListener('click', startRun);
     btnFinishRestart.addEventListener('click', startRun);
     btnUltra.addEventListener('click', continueUltra);
 
     window.addEventListener('keydown', (e) => {
       if (e.target && e.target.tagName === 'INPUT' && e.target.type === 'text') {
-        if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); startRun(); }
+        if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); onStartClick(); }
         return;
       }
+      if (customizing) return;
       const k = e.code;
       if (k === 'Space' || k === 'ArrowUp' || k === 'KeyW') {
         e.preventDefault();
-        if (phase === 'ready' || phase === 'over') startRun();
+        if (phase === 'ready') onStartClick();
+        else if (phase === 'over') startRun();
         else triggerJump();
       } else if (k === 'ArrowDown' || k === 'KeyS') {
         e.preventDefault();
         triggerSlide();
       } else if (k === 'Enter' && (phase === 'ready' || phase === 'over')) {
-        startRun();
+        if (phase === 'ready') onStartClick(); else startRun();
       }
     });
 
@@ -1981,7 +2296,8 @@
       const dt = Math.min(0.05, (now - lastNow) / 1000);
       lastNow = now;
 
-      // Camera damping
+      // Camera damping (auto-rotate while choosing an outfit)
+      if (customizing) camState.thetaGoal += dt * 0.45;
       camState.theta += (camState.thetaGoal - camState.theta) * 0.1;
       camState.phi += (camState.phiGoal - camState.phi) * 0.1;
       camState.radius += (camState.radiusGoal - camState.radius) * 0.1;
@@ -2216,6 +2532,7 @@
         leftLeg.knee.rotation.x = Math.max(0.08, Math.sin(cycle + Math.PI + 0.8) * 0.95 + 0.45);
       }
 
+      updateHairSway(cycle, !isGrounded);
       const shadowScale = Math.max(0.35, (1.0 - Math.abs(Math.sin(cycle)) * 0.12) * (1.0 - jumpY * 0.28));
       shadowDisc.scale.set(shadowScale, shadowScale, 1);
 
