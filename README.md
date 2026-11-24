@@ -18,6 +18,11 @@
 ## 音樂
 原創 8-bit 背景音樂由 Web Audio 即時合成（無音樂檔），每段場景一首，節奏隨等級與坡道變化。
 
+## 線上排行榜
+開跑前輸入姓名（會印在號碼布上），結束或完賽後顯示前 10 名（每人取最佳一次，依分數排名）。
+成績存在 Apps Script 自動建立的「馬拉松跑者排行榜」Google 試算表。
+GitHub Pages 版需在 `index.html` 的 `LEADERBOARD_URL` 填入 Apps Script 的 `/exec` 網址才會共用排行榜。
+
 ## 部署
 - GitHub Pages：`index.html`
 - Google Apps Script：`apps-script/Code.gs` + `apps-script/Index.html`

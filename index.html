@@ -152,7 +152,7 @@
 
     <!-- Start Overlay -->
     <div id="start-overlay" class="absolute inset-0 z-30 bg-slate-950/55 backdrop-blur-sm flex items-center justify-center p-4">
-      <div class="bg-slate-900/95 border border-slate-700 rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl">
+      <div class="bg-slate-900/95 border border-slate-700 rounded-2xl p-5 max-w-sm w-full max-h-full overflow-y-auto text-center shadow-2xl">
         <div class="text-4xl mb-2">🏃‍♂️</div>
         <h2 class="text-2xl font-black text-white">馬拉松跑者</h2>
         <p class="text-sm text-emerald-300 font-bold mb-3">挑戰 42.195K 全程馬拉松</p>
@@ -162,6 +162,12 @@
           <li>🛡️ 護盾可擋一次碰撞 · 🔥 連續閃避倍率最高 ×3</li>
           <li>⛰️ 上坡變慢、下坡變快 · 每 10K 有補給站</li>
         </ul>
+        <label class="block text-left mb-3">
+          <span class="text-xs font-bold text-slate-300">跑者姓名（會顯示在排行榜）</span>
+          <input id="name-input" type="text" maxlength="12" autocomplete="nickname" placeholder="請輸入你的名字"
+            class="mt-1 w-full rounded-xl bg-slate-800 border border-slate-600 focus:border-emerald-400 focus:outline-none px-3 py-2.5 text-base text-white placeholder-slate-500" />
+          <span id="name-error" class="hidden text-xs font-bold text-rose-400 mt-1 block">請先輸入姓名再開跑</span>
+        </label>
         <div class="grid grid-cols-3 gap-2 mb-4">
           <div class="rec-box"><div class="rec-label">最高分</div><div id="rec-score" class="rec-num text-amber-300">0</div></div>
           <div class="rec-box"><div class="rec-label">最遠距離</div><div id="rec-dist" class="rec-num text-sky-300">0K</div></div>
@@ -173,10 +179,10 @@
 
     <!-- Game Over Overlay -->
     <div id="gameover-overlay" class="hidden absolute inset-0 z-30 bg-slate-950/65 backdrop-blur-sm flex items-center justify-center p-4">
-      <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl">
+      <div class="bg-slate-900 border border-slate-700 rounded-2xl p-5 max-w-sm w-full max-h-full overflow-y-auto text-center shadow-2xl">
         <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-rose-500/20 text-rose-400 text-2xl mb-3">💥</div>
         <h2 class="text-xl font-bold text-white mb-1">撞到障礙物了！</h2>
-        <p id="over-sub" class="text-xs text-slate-400 mb-4">#517 HSINHUNG YEH 的馬拉松挑戰結束</p>
+        <p id="over-sub" class="text-xs text-slate-400 mb-4"></p>
         <div class="grid grid-cols-3 gap-2 mb-2">
           <div class="rec-box"><div class="rec-label">本次分數</div><div id="final-score" class="rec-num text-amber-300">0</div></div>
           <div class="rec-box"><div class="rec-label">距離</div><div id="final-dist" class="rec-num text-sky-300">0K</div></div>
@@ -187,23 +193,31 @@
           <div class="rec-box"><div class="rec-label">補給</div><div id="final-supply" class="rec-num text-cyan-300">0</div></div>
           <div class="rec-box"><div class="rec-label">最高連擊</div><div id="final-combo" class="rec-num text-orange-300">0</div></div>
         </div>
-        <p id="over-records" class="text-xs font-bold text-amber-300 mb-4 min-h-[1rem]"></p>
+        <p id="over-records" class="text-xs font-bold text-amber-300 mb-3 min-h-[1rem]"></p>
+        <div class="mb-4 text-left">
+          <div class="flex items-center justify-between mb-1.5"><span class="text-sm font-black text-white">🏆 排行榜前 10 名</span><span id="over-lb-meta" class="text-[11px] text-slate-400"></span></div>
+          <div id="over-lb" class="rounded-xl border border-slate-700/70 bg-slate-800/60 overflow-hidden text-xs"></div>
+        </div>
         <button id="btn-restart" class="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm transition shadow-lg">🔄 再跑一次</button>
       </div>
     </div>
 
     <!-- Finish Overlay -->
     <div id="finish-overlay" class="hidden absolute inset-0 z-30 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div class="bg-gradient-to-b from-amber-500/20 to-slate-900 bg-slate-900 border border-amber-400/50 rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl">
+      <div class="bg-gradient-to-b from-amber-500/20 to-slate-900 bg-slate-900 border border-amber-400/50 rounded-2xl p-5 max-w-sm w-full max-h-full overflow-y-auto text-center shadow-2xl">
         <div class="text-4xl mb-1">🏅</div>
         <h2 class="text-2xl font-black text-amber-300">全馬完賽！</h2>
-        <p class="text-xs text-slate-300 mb-3">#517 HSINHUNG YEH · 42.195K</p>
+        <p id="finish-sub" class="text-xs text-slate-300 mb-3">#517 · 42.195K</p>
         <div class="rec-box mb-2"><div class="rec-label">完賽時間</div><div id="finish-time" class="text-3xl font-black font-mono text-emerald-300">0:00:00</div></div>
         <div class="grid grid-cols-2 gap-2 mb-2">
           <div class="rec-box"><div class="rec-label">分數</div><div id="finish-score" class="rec-num text-amber-300">0</div></div>
           <div class="rec-box"><div class="rec-label">平均配速</div><div id="finish-pace" class="rec-num text-sky-300">0:00/km</div></div>
         </div>
-        <p id="finish-records" class="text-xs font-bold text-amber-300 mb-4 min-h-[1rem]"></p>
+        <p id="finish-records" class="text-xs font-bold text-amber-300 mb-3 min-h-[1rem]"></p>
+        <div class="mb-4 text-left">
+          <div class="flex items-center justify-between mb-1.5"><span class="text-sm font-black text-white">🏆 排行榜前 10 名</span><span id="finish-lb-meta" class="text-[11px] text-slate-400"></span></div>
+          <div id="finish-lb" class="rounded-xl border border-slate-700/70 bg-slate-800/60 overflow-hidden text-xs"></div>
+        </div>
         <div class="grid grid-cols-2 gap-2">
           <button id="btn-ultra" class="py-3 rounded-xl bg-gradient-to-b from-fuchsia-500 to-purple-600 text-white font-black text-sm shadow-lg">🔥 繼續跑超馬</button>
           <button id="btn-finish-restart" class="py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm shadow-lg">🔄 再跑一次</button>
@@ -1627,10 +1641,11 @@
       $('final-supply').textContent = supplyCount;
       $('final-combo').textContent = maxCombo;
       $('over-sub').textContent = ultraMode
-        ? '#517 HSINHUNG YEH 超馬挑戰結束（已完成全馬）'
-        : '#517 HSINHUNG YEH 在 ' + distKm.toFixed(1) + 'K 倒下了…';
-      $('over-records').textContent = msgs.length ? '🎉 刷新紀錄：' + msgs.join('、') : '';
+        ? playerName + ' 的超馬挑戰結束（已完成全馬）'
+        : playerName + ' 在 ' + distKm.toFixed(1) + 'K 倒下了…';
+      $('over-records').textContent = msgs.length ? '🎉 刷新個人紀錄：' + msgs.join('、') : '';
       gameoverOverlay.classList.remove('hidden');
+      submitToLeaderboard('over-lb', { finished: ultraMode, time: ultraMode ? lastFinishSim : simTime });
     }
 
     function triggerFinish(finishSim) {
@@ -1644,8 +1659,11 @@
       $('finish-time').textContent = fmtTime(finishSim);
       $('finish-score').textContent = Math.floor(score);
       $('finish-pace').textContent = fmtPace(finishSim / MARATHON);
-      $('finish-records').textContent = msgs.length ? '🎉 刷新紀錄：' + msgs.join('、') : '';
+      $('finish-records').textContent = msgs.length ? '🎉 刷新個人紀錄：' + msgs.join('、') : '';
+      $('finish-sub').textContent = playerName + ' · 42.195K';
       finishOverlay.classList.remove('hidden');
+      lastFinishSim = finishSim;
+      submitToLeaderboard('finish-lb', { finished: true, time: finishSim });
     }
 
     function continueUltra() {
@@ -1687,6 +1705,7 @@
     }
 
     function startRun() {
+      if (!readPlayerName()) return;
       ensureAudio();
       resetGame();
       startOverlay.classList.add('hidden');
@@ -1694,6 +1713,95 @@
       setPlayUI();
       Music.start(0);
       announce('🏁 起跑！', '目標 42.195K · 加油 #517', 1800);
+    }
+
+    // ===== Player name & online leaderboard =====
+    // GitHub Pages 版：填入 Apps Script 網頁應用程式的 /exec 網址即可共用排行榜。
+    // Apps Script 版會自動改用 google.script.run，這裡留空也沒關係。
+    const LEADERBOARD_URL = '';
+    const NAME_KEY = 'marathon_517_name';
+    const nameInput = $('name-input');
+    const nameError = $('name-error');
+    let playerName = '';
+    let lastFinishSim = 0;
+    try { nameInput.value = localStorage.getItem(NAME_KEY) || ''; } catch {}
+
+    function readPlayerName() {
+      const v = nameInput.value.replace(/[<>\u0000-\u001f]/g, '').trim().slice(0, 12);
+      if (!v) {
+        nameError.classList.remove('hidden');
+        startOverlay.classList.remove('hidden');
+        nameInput.focus();
+        return false;
+      }
+      nameError.classList.add('hidden');
+      if (v !== playerName) { playerName = v; paintBibName(v); }
+      try { localStorage.setItem(NAME_KEY, v); } catch {}
+      return true;
+    }
+    nameInput.addEventListener('input', () => nameError.classList.add('hidden'));
+
+    function paintBibName(name) {
+      const tex = bibMat.map, c = tex.image, ctx = c.getContext('2d');
+      ctx.fillStyle = '#fde047';
+      ctx.fillRect(16, 246, 480, 44);
+      ctx.fillStyle = '#1e293b';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      let size = 34;
+      do { ctx.font = '900 ' + size + 'px "Noto Sans TC", Inter, sans-serif'; size -= 2; } while (ctx.measureText(name).width > 440 && size > 14);
+      ctx.fillText(name, 256, 280);
+      tex.needsUpdate = true;
+    }
+
+    function lbCall(action, payload) {
+      return new Promise((resolve, reject) => {
+        const gs = window.google && google.script && google.script.run;
+        if (gs) {
+          const runner = google.script.run.withSuccessHandler(resolve).withFailureHandler((e) => reject(e && e.message ? e.message : String(e)));
+          if (action === 'submit') runner.submitScore(payload); else runner.getTop(payload);
+          return;
+        }
+        if (!LEADERBOARD_URL) { reject('尚未設定線上排行榜'); return; }
+        fetch(LEADERBOARD_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(Object.assign({ action }, payload))
+        }).then((r) => r.json()).then((d) => d && d.ok ? resolve(d) : reject((d && d.error) || '排行榜錯誤')).catch((e) => reject(String(e)));
+      });
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+    }
+    function renderLeaderboard(elId, data) {
+      const el = $(elId), meta = $(elId + '-meta');
+      const medals = ['🥇', '🥈', '🥉'];
+      if (!data.top || !data.top.length) { el.innerHTML = '<div class="p-3 text-center text-slate-400">還沒有成績，你是第一位！</div>'; return; }
+      let html = '<div class="grid grid-cols-[2rem_1fr_4.2rem_3.4rem_3.8rem] gap-x-1 px-2 py-1.5 bg-slate-900/70 text-[10px] text-slate-400 font-bold">'
+        + '<span>名次</span><span>姓名</span><span class="text-right">分數</span><span class="text-right">距離</span><span class="text-right">完賽</span></div>';
+      data.top.forEach((it) => {
+        const mine = it.name === playerName;
+        html += '<div class="grid grid-cols-[2rem_1fr_4.2rem_3.4rem_3.8rem] gap-x-1 px-2 py-1.5 border-t border-slate-700/50 '
+          + (mine ? 'bg-emerald-500/20 text-emerald-200 font-bold' : 'text-slate-200') + '">'
+          + '<span>' + (medals[it.rank - 1] || it.rank) + '</span>'
+          + '<span class="truncate">' + escapeHtml(it.name) + '</span>'
+          + '<span class="text-right font-mono">' + Number(it.score).toLocaleString() + '</span>'
+          + '<span class="text-right font-mono">' + Number(it.dist).toFixed(1) + 'K</span>'
+          + '<span class="text-right font-mono">' + (it.finish || '—') + '</span></div>';
+      });
+      el.innerHTML = html;
+      meta.textContent = data.myRank ? '你是第 ' + data.myRank + ' 名 / 共 ' + data.total + ' 人' : '共 ' + data.total + ' 人';
+    }
+    function submitToLeaderboard(elId, extra) {
+      const el = $(elId), meta = $(elId + '-meta');
+      meta.textContent = '';
+      el.innerHTML = '<div class="p-3 text-center text-slate-400">⏳ 上傳成績中…</div>';
+      lbCall('submit', {
+        name: playerName, score: Math.floor(score), dist: Math.round(distKm * 100) / 100,
+        time: Math.floor(extra.time || 0), finished: !!extra.finished
+      }).then((d) => renderLeaderboard(elId, d))
+        .catch((err) => { el.innerHTML = '<div class="p-3 text-center text-rose-300">排行榜暫時無法連線（' + escapeHtml(err) + '）<br>成績已存在這台裝置的個人紀錄。</div>'; });
     }
 
     // ===== 15. Controls =====
@@ -1709,6 +1817,10 @@
     btnUltra.addEventListener('click', continueUltra);
 
     window.addEventListener('keydown', (e) => {
+      if (e.target && e.target.tagName === 'INPUT' && e.target.type === 'text') {
+        if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); startRun(); }
+        return;
+      }
       const k = e.code;
       if (k === 'Space' || k === 'ArrowUp' || k === 'KeyW') {
         e.preventDefault();
