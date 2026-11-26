@@ -26,6 +26,9 @@
 成績存在 Apps Script 自動建立的「馬拉松跑者排行榜」Google 試算表。
 GitHub Pages 版需在 `index.html` 的 `LEADERBOARD_URL` 填入 Apps Script 的 `/exec` 網址才會共用排行榜。
 
+## 安裝成 App
+GitHub Pages 版是 PWA：手機用 Safari／Chrome 開啟後「加入主畫面」，或電腦 Chrome／Edge 網址列的安裝圖示，即可像 App 一樣全螢幕開啟；玩過一次後離線也能開（線上排行榜仍需網路）。
+
 ## 部署
 - GitHub Pages：`index.html`
 - Google Apps Script：`apps-script/Code.gs` + `apps-script/Index.html`
