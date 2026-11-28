@@ -456,6 +456,9 @@
       },
       schedule() {
         if (!this.playing || !audioCtx) return;
+        if (audioCtx.currentTime - this.nextTime > 0.5) {
+          this.nextTime = audioCtx.currentTime + 0.05;
+        }
         while (this.nextTime < audioCtx.currentTime + 0.15) {
           if (this.step % 16 === 0 && this.pendingIdx !== null) {
             this.songIdx = this.pendingIdx; this.pendingIdx = null; this.step = 0;
@@ -756,11 +759,39 @@
       return tex;
     }
 
-    // 5. Materials Registry
-    const allMaterials = [];
-    function regMat(mat) {
-      allMaterials.push(mat);
+    // 5. Materials & Geometry Registry (shared pool + safe disposal)
+    const allMaterials = new Set();
+    const sharedMaterials = new Set();
+    const sharedGeometries = new Set();
+    function regMat(mat, isShared = true) {
+      mat.wireframe = isWireframe;
+      allMaterials.add(mat);
+      if (isShared) sharedMaterials.add(mat);
       return mat;
+    }
+    function regGeo(geo) {
+      sharedGeometries.add(geo);
+      return geo;
+    }
+    function disposeGroup(group) {
+      if (!group) return;
+      world.remove(group);
+      group.traverse((obj) => {
+        if (obj.geometry && !sharedGeometries.has(obj.geometry)) {
+          obj.geometry.dispose();
+        }
+        if (obj.material) {
+          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+          for (let i = 0; i < mats.length; i++) {
+            const m = mats[i];
+            if (!sharedMaterials.has(m)) {
+              if (m.map) m.map.dispose();
+              m.dispose();
+              allMaterials.delete(m);
+            }
+          }
+        }
+      });
     }
 
     const skinMat = regMat(new THREE.MeshStandardMaterial({ color: '#f7cba8', roughness: 0.65 }));
@@ -1202,31 +1233,52 @@
     const treeBaseColors = bgTrees.map((t) => t.material.color.clone());
     const roadMatRef = roadMesh.material;
     const vis = { bldg: 0, riverV: 0, lampV: 0, starV: 0 };
+    const THEME_KEYS = ['bldg', 'riverV', 'lampV', 'starV'];
     const _c = new THREE.Color();
+    const _tint = new THREE.Color();
+    let themeSettled = false;
     function applyTheme(th, k) {
-      scene.background.lerp(_c.set(th.sky), k);
-      scene.fog.color.lerp(_c.set(th.fog), k);
+      if (k < 1 && themeSettled) return;
+      let maxDiff = 0;
+      const trackColor = (cur, target) => {
+        const d = Math.abs(cur.r - target.r) + Math.abs(cur.g - target.g) + Math.abs(cur.b - target.b);
+        if (d > maxDiff) maxDiff = d;
+      };
+      _c.set(th.sky); trackColor(scene.background, _c); scene.background.lerp(_c, k);
+      _c.set(th.fog); trackColor(scene.fog.color, _c); scene.fog.color.lerp(_c, k);
+      maxDiff = Math.max(maxDiff, Math.abs(th.fogD - scene.fog.density) * 20);
       scene.fog.density += (th.fogD - scene.fog.density) * k;
-      hemiLight.color.lerp(_c.set(th.hemiS), k);
-      hemiLight.groundColor.lerp(_c.set(th.hemiG), k);
+      _c.set(th.hemiS); hemiLight.color.lerp(_c, k);
+      _c.set(th.hemiG); hemiLight.groundColor.lerp(_c, k);
+      maxDiff = Math.max(maxDiff, Math.abs(th.hemiI - hemiLight.intensity));
       hemiLight.intensity += (th.hemiI - hemiLight.intensity) * k;
-      sunLight.color.lerp(_c.set(th.sun), k);
+      _c.set(th.sun); sunLight.color.lerp(_c, k);
+      maxDiff = Math.max(maxDiff, Math.abs(th.sunI - sunLight.intensity));
       sunLight.intensity += (th.sunI - sunLight.intensity) * k;
-      grassMat.color.lerp(_c.set(th.grass), k);
-      roadMatRef.color.lerp(_c.set(th.road), k);
-      bokehMat.color.lerp(_c.set(th.bokeh), k);
-      const tint = new THREE.Color(th.tree);
-      bgTrees.forEach((t, i) => t.material.color.lerp(_c.copy(treeBaseColors[i]).multiply(tint), k));
-      ['bldg', 'riverV', 'lampV', 'starV'].forEach((key) => { vis[key] += (th[key] - vis[key]) * k; });
-      buildings.forEach((b) => {
+      _c.set(th.grass); trackColor(grassMat.color, _c); grassMat.color.lerp(_c, k);
+      _c.set(th.road); roadMatRef.color.lerp(_c, k);
+      _c.set(th.bokeh); bokehMat.color.lerp(_c, k);
+      _tint.set(th.tree);
+      for (let i = 0; i < bgTrees.length; i++) {
+        _c.copy(treeBaseColors[i]).multiply(_tint);
+        bgTrees[i].material.color.lerp(_c, k);
+      }
+      for (let i = 0; i < THEME_KEYS.length; i++) {
+        const key = THEME_KEYS[i];
+        maxDiff = Math.max(maxDiff, Math.abs(th[key] - vis[key]));
+        vis[key] += (th[key] - vis[key]) * k;
+      }
+      for (let i = 0; i < buildings.length; i++) {
+        const b = buildings[i];
         b.scale.y = Math.max(0.001, vis.bldg);
         b.visible = vis.bldg > 0.02;
         b.material.emissiveIntensity = vis.lampV * 0.9;
-      });
+      }
       river.visible = vis.riverV > 0.02;
       riverMat.opacity = vis.riverV * 0.85;
       lampBulbMat.emissiveIntensity = vis.lampV * 2.2;
       starMat.opacity = vis.starV;
+      themeSettled = (k >= 1 || maxDiff < 0.003);
     }
     applyTheme(STAGES[0], 1);
 
@@ -1317,15 +1369,18 @@
       tex.encoding = THREE.sRGBEncoding;
       return tex;
     }
-    function signBoard(lines, opts, width, height, postH) {
+    const signPostGeo = regGeo(new THREE.CylinderGeometry(0.04, 0.04, 1, 8));
+    function signBoard(lines, opts, width, height, postH, sharedBoardMat) {
       const g = new THREE.Group();
-      const mat = regMat(new THREE.MeshStandardMaterial({ map: textTexture(lines, opts), roughness: 0.5 }));
+      const mat = sharedBoardMat || regMat(new THREE.MeshStandardMaterial({ map: textTexture(lines, opts), roughness: 0.5 }), false);
       const board = new THREE.Mesh(new THREE.BoxGeometry(width, height, 0.06), mat);
       board.position.y = postH + height / 2;
       g.add(board);
+      const totalH = postH + height;
       [-1, 1].forEach((s) => {
-        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, postH + height, 8), lampPoleMat);
-        post.position.set(s * (width / 2 - 0.08), (postH + height) / 2, -0.05);
+        const post = new THREE.Mesh(signPostGeo, lampPoleMat);
+        post.scale.y = totalH;
+        post.position.set(s * (width / 2 - 0.08), totalH / 2, -0.05);
         g.add(post);
       });
       board.castShadow = true;
@@ -1338,23 +1393,58 @@
     const archWhite = regMat(new THREE.MeshStandardMaterial({ color: '#f8fafc', roughness: 0.6 }));
     const archBlue = regMat(new THREE.MeshStandardMaterial({ color: '#2563eb', roughness: 0.6 }));
 
+    const archSegGeoCache = {};
+    const archPlateGeoCache = {};
+    const archPlateMatCache = {};
     function buildArch(R, tube, colorA, colorB, label) {
       const g = new THREE.Group();
       const segs = 7;
+      const segKey = R + '_' + tube;
+      if (!archSegGeoCache[segKey]) {
+        archSegGeoCache[segKey] = regGeo(new THREE.TorusGeometry(R, tube, 10, 8, Math.PI / segs));
+      }
+      const segGeo = archSegGeoCache[segKey];
       for (let s = 0; s < segs; s++) {
-        const seg = new THREE.Mesh(new THREE.TorusGeometry(R, tube, 10, 8, Math.PI / segs), s % 2 === 0 ? colorA : colorB);
+        const seg = new THREE.Mesh(segGeo, s % 2 === 0 ? colorA : colorB);
         seg.rotation.z = (Math.PI / segs) * s;
         seg.castShadow = true;
         g.add(seg);
       }
       if (label) {
-        const plate = new THREE.Mesh(new THREE.BoxGeometry(R * 1.3, R * 0.32, 0.12),
-          regMat(new THREE.MeshStandardMaterial({ map: textTexture([label.text], { bg: label.bg, fg: label.fg, w: 512, h: 128 }), roughness: 0.5 })));
+        if (!archPlateGeoCache[R]) {
+          archPlateGeoCache[R] = regGeo(new THREE.BoxGeometry(R * 1.3, R * 0.32, 0.12));
+        }
+        const matKey = label.text + '|' + label.bg + '|' + label.fg;
+        if (!archPlateMatCache[matKey]) {
+          archPlateMatCache[matKey] = regMat(new THREE.MeshStandardMaterial({
+            map: textTexture([label.text], { bg: label.bg, fg: label.fg, w: 512, h: 128 }), roughness: 0.5
+          }));
+        }
+        const plate = new THREE.Mesh(archPlateGeoCache[R], archPlateMatCache[matKey]);
         plate.position.set(0, R + tube * 0.6, 0.1);
         g.add(plate);
       }
       return g;
     }
+
+    const OB_GEO = {
+      bannerPole: regGeo(new THREE.CylinderGeometry(0.05, 0.05, 2.35, 8)),
+      bannerCloth: regGeo(new THREE.BoxGeometry(4.3, 0.62, 0.04)),
+      coneBase: regGeo(new THREE.BoxGeometry(0.55, 0.06, 0.55)),
+      coneBody: regGeo(new THREE.ConeGeometry(0.22, 0.65, 16)),
+      coneStripe: regGeo(new THREE.CylinderGeometry(0.11, 0.16, 0.16, 16)),
+      dConeBase: regGeo(new THREE.BoxGeometry(0.48, 0.06, 0.48)),
+      dConeBody: regGeo(new THREE.ConeGeometry(0.20, 0.72, 16)),
+      dConeStripe: regGeo(new THREE.CylinderGeometry(0.10, 0.145, 0.16, 16)),
+      tHurdleLeg: regGeo(new THREE.CylinderGeometry(0.045, 0.045, 0.88, 10)),
+      tHurdleFoot: regGeo(new THREE.BoxGeometry(0.14, 0.05, 0.40)),
+      tHurdleTop: regGeo(new THREE.BoxGeometry(1.65, 0.18, 0.10)),
+      tHurdleMid: regGeo(new THREE.BoxGeometry(1.65, 0.12, 0.08)),
+      hurdleLeg: regGeo(new THREE.CylinderGeometry(0.04, 0.04, 0.62, 10)),
+      hurdleFoot: regGeo(new THREE.BoxGeometry(0.12, 0.05, 0.36)),
+      hurdleBar: regGeo(new THREE.BoxGeometry(1.5, 0.16, 0.08)),
+      hurdleStripe: regGeo(new THREE.BoxGeometry(0.45, 0.165, 0.09))
+    };
 
     function createObstacle(type) {
       let group = new THREE.Group();
@@ -1368,15 +1458,15 @@
         hitRadiusZ = 0.34;
       } else if (type === 'banner') {
         [-1, 1].forEach((s) => {
-          const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.35, 8), whiteMat);
+          const pole = new THREE.Mesh(OB_GEO.bannerPole, whiteMat);
           pole.position.set(s * 2.15, 1.175, 0);
           pole.castShadow = true;
           group.add(pole);
         });
         const txt = BANNER_TEXTS[Math.floor(Math.random() * BANNER_TEXTS.length)];
         const colors = [['#facc15', '#7c2d12'], ['#22c55e', '#ffffff'], ['#ec4899', '#ffffff'], ['#3b82f6', '#ffffff']][Math.floor(Math.random() * 4)];
-        const cloth = new THREE.Mesh(new THREE.BoxGeometry(4.3, 0.62, 0.04),
-          regMat(new THREE.MeshStandardMaterial({ map: textTexture([txt], { bg: colors[0], fg: colors[1], w: 512, h: 80 }), roughness: 0.7 })));
+        const cloth = new THREE.Mesh(OB_GEO.bannerCloth,
+          regMat(new THREE.MeshStandardMaterial({ map: textTexture([txt], { bg: colors[0], fg: colors[1], w: 512, h: 80 }), roughness: 0.7 }), false));
         cloth.position.y = 1.9;
         cloth.castShadow = true;
         group.add(cloth);
@@ -1385,17 +1475,17 @@
       } else {
         if (type === 'cone') {
           // Orange & White Traffic Cone
-          const base = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.06, 0.55), coneOrangeMat);
+          const base = new THREE.Mesh(OB_GEO.coneBase, coneOrangeMat);
           base.position.y = 0.03;
           base.castShadow = true;
           group.add(base);
 
-          const cone = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.65, 16), coneOrangeMat);
+          const cone = new THREE.Mesh(OB_GEO.coneBody, coneOrangeMat);
           cone.position.y = 0.35;
           cone.castShadow = true;
           group.add(cone);
 
-          const stripe = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.16, 0.16, 16), whiteMat);
+          const stripe = new THREE.Mesh(OB_GEO.coneStripe, whiteMat);
           stripe.position.y = 0.38;
           group.add(stripe);
 
@@ -1404,17 +1494,17 @@
         } else if (type === 'double_cone') {
           // Twin Traffic Cones (wider & taller visual pressure)
           [-0.36, 0.36].forEach((ox) => {
-            const base = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.06, 0.48), coneOrangeMat);
+            const base = new THREE.Mesh(OB_GEO.dConeBase, coneOrangeMat);
             base.position.set(ox, 0.03, 0);
             base.castShadow = true;
             group.add(base);
 
-            const cone = new THREE.Mesh(new THREE.ConeGeometry(0.20, 0.72, 16), coneOrangeMat);
+            const cone = new THREE.Mesh(OB_GEO.dConeBody, coneOrangeMat);
             cone.position.set(ox, 0.39, 0);
             cone.castShadow = true;
             group.add(cone);
 
-            const stripe = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.145, 0.16, 16), whiteMat);
+            const stripe = new THREE.Mesh(OB_GEO.dConeStripe, whiteMat);
             stripe.position.set(ox, 0.42, 0);
             group.add(stripe);
           });
@@ -1423,19 +1513,19 @@
         } else if (type === 'tall_hurdle') {
           // High Marathon Barricade (requires higher/double jump or crisp timing)
           [-0.72, 0.72].forEach((px) => {
-            const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.88, 10), whiteMat);
+            const leg = new THREE.Mesh(OB_GEO.tHurdleLeg, whiteMat);
             leg.position.set(px, 0.44, 0);
             leg.castShadow = true;
             group.add(leg);
-            const foot = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.05, 0.40), darkMat);
+            const foot = new THREE.Mesh(OB_GEO.tHurdleFoot, darkMat);
             foot.position.set(px, 0.025, 0);
             group.add(foot);
           });
-          const barTop = new THREE.Mesh(new THREE.BoxGeometry(1.65, 0.18, 0.10), hurdleRedMat);
+          const barTop = new THREE.Mesh(OB_GEO.tHurdleTop, hurdleRedMat);
           barTop.position.y = 0.82;
           barTop.castShadow = true;
           group.add(barTop);
-          const barMid = new THREE.Mesh(new THREE.BoxGeometry(1.65, 0.12, 0.08), whiteMat);
+          const barMid = new THREE.Mesh(OB_GEO.tHurdleMid, whiteMat);
           barMid.position.y = 0.56;
           group.add(barMid);
           hitHeight = 0.88;
@@ -1443,22 +1533,22 @@
         } else {
           // Red & White Marathon Hurdle / Barricade
           [-0.65, 0.65].forEach((px) => {
-            const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.62, 10), whiteMat);
+            const leg = new THREE.Mesh(OB_GEO.hurdleLeg, whiteMat);
             leg.position.set(px, 0.31, 0);
             leg.castShadow = true;
             group.add(leg);
 
-            const foot = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.05, 0.36), darkMat);
+            const foot = new THREE.Mesh(OB_GEO.hurdleFoot, darkMat);
             foot.position.set(px, 0.025, 0);
             group.add(foot);
           });
 
-          const bar = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.16, 0.08), hurdleRedMat);
+          const bar = new THREE.Mesh(OB_GEO.hurdleBar, hurdleRedMat);
           bar.position.y = 0.56;
           bar.castShadow = true;
           group.add(bar);
 
-          const centerStripe = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.165, 0.09), whiteMat);
+          const centerStripe = new THREE.Mesh(OB_GEO.hurdleStripe, whiteMat);
           centerStripe.position.y = 0.56;
           group.add(centerStripe);
 
@@ -1472,30 +1562,40 @@
       obstacles.push({ group, hitHeight, hitRadiusZ, overhead, passed: false, hit: false });
     }
 
-    function clearList(list) { list.forEach((o) => world.remove(o.group)); list.length = 0; }
+    function clearList(list) { list.forEach((o) => disposeGroup(o.group)); list.length = 0; }
 
     // ===== 12. Supplies & Shield item =====
+    const SUP_GEO = {
+      bar: regGeo(new THREE.BoxGeometry(0.28, 0.36, 0.14)),
+      barCap: regGeo(new THREE.CylinderGeometry(0.05, 0.06, 0.10, 10)),
+      bottle: regGeo(new THREE.CylinderGeometry(0.12, 0.12, 0.38, 14)),
+      bottleLabel: regGeo(new THREE.CylinderGeometry(0.124, 0.124, 0.14, 14)),
+      bottleCap: regGeo(new THREE.CylinderGeometry(0.06, 0.06, 0.08, 12)),
+      ring: regGeo(new THREE.TorusGeometry(0.26, 0.02, 8, 20)),
+      shieldCore: regGeo(new THREE.OctahedronGeometry(0.3, 0)),
+      shieldHalo: regGeo(new THREE.TorusGeometry(0.42, 0.03, 8, 24))
+    };
     function createSupply(forceLow) {
       const isEnergy = Math.random() < 0.42;
       const group = new THREE.Group();
       if (isEnergy) {
-        const bar = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.36, 0.14), energyGoldMat);
+        const bar = new THREE.Mesh(SUP_GEO.bar, energyGoldMat);
         bar.castShadow = true;
         group.add(bar);
-        const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.10, 10), whiteMat);
+        const cap = new THREE.Mesh(SUP_GEO.barCap, whiteMat);
         cap.position.y = 0.22;
         group.add(cap);
       } else {
-        const bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.38, 14), drinkBlueMat);
+        const bottle = new THREE.Mesh(SUP_GEO.bottle, drinkBlueMat);
         bottle.castShadow = true;
         group.add(bottle);
-        const label = new THREE.Mesh(new THREE.CylinderGeometry(0.124, 0.124, 0.14, 14), whiteMat);
+        const label = new THREE.Mesh(SUP_GEO.bottleLabel, whiteMat);
         group.add(label);
-        const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.08, 12), whiteMat);
+        const cap = new THREE.Mesh(SUP_GEO.bottleCap, whiteMat);
         cap.position.y = 0.23;
         group.add(cap);
       }
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.02, 8, 20), isEnergy ? energyGoldMat : drinkBlueMat);
+      const ring = new THREE.Mesh(SUP_GEO.ring, isEnergy ? energyGoldMat : drinkBlueMat);
       ring.rotation.x = Math.PI / 2;
       ring.position.y = -0.22;
       group.add(ring);
@@ -1509,10 +1609,10 @@
     const shieldItemMat = regMat(new THREE.MeshStandardMaterial({ color: '#7dd3fc', emissive: '#0ea5e9', emissiveIntensity: 0.6, roughness: 0.2, metalness: 0.3 }));
     function createShieldItem() {
       const group = new THREE.Group();
-      const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.3, 0), shieldItemMat);
+      const core = new THREE.Mesh(SUP_GEO.shieldCore, shieldItemMat);
       core.castShadow = true;
       group.add(core);
-      const halo = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.03, 8, 24), shieldItemMat);
+      const halo = new THREE.Mesh(SUP_GEO.shieldHalo, shieldItemMat);
       group.add(halo);
       group.position.set(0, 0.6, SPAWN_Z);
       world.add(group);
@@ -1520,6 +1620,10 @@
     }
 
     // ===== 13. Roadside props: km signs, hill signs, cheer squads, stations, finish arch =====
+    const pendingTimers = [];
+    function clearPendingTimers() {
+      while (pendingTimers.length) clearTimeout(pendingTimers.pop());
+    }
     function addProp(group, onPass) {
       group.position.z = SPAWN_Z;
       world.add(group);
@@ -1531,13 +1635,24 @@
       g.rotation.y = -0.35;
       addProp(g);
     }
+    const hillSignMats = {
+      up: regMat(new THREE.MeshStandardMaterial({ map: textTexture(['⚠ 前方上坡'], { bg: '#facc15', fg: '#0f172a', border: '#0f172a', w: 512, h: 160 }), roughness: 0.5 })),
+      down: regMat(new THREE.MeshStandardMaterial({ map: textTexture(['⚠ 前方下坡'], { bg: '#facc15', fg: '#0f172a', border: '#0f172a', w: 512, h: 160 }), roughness: 0.5 }))
+    };
     function spawnHillSign(up) {
-      const g = signBoard([up ? '⚠ 前方上坡' : '⚠ 前方下坡'], { bg: '#facc15', fg: '#0f172a', border: '#0f172a', w: 512, h: 160 }, 1.5, 0.46, 1.0);
+      const g = signBoard(null, null, 1.5, 0.46, 1.0, up ? hillSignMats.up : hillSignMats.down);
       g.position.x = -3.7;
       g.rotation.y = 0.35;
       addProp(g);
     }
     const shirtColors = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#a855f7', '#ec4899'];
+    const cheerShirtMats = shirtColors.map((c) => regMat(new THREE.MeshStandardMaterial({ color: c, roughness: 0.6 })));
+    const CHEER_GEO = {
+      body: regGeo(new THREE.CylinderGeometry(0.2, 0.24, 0.6, 10)),
+      head: regGeo(new THREE.SphereGeometry(0.2, 12, 10)),
+      arm: regGeo(new THREE.CylinderGeometry(0.05, 0.05, 0.45, 6)),
+      flag: regGeo(new THREE.PlaneGeometry(0.34, 0.22))
+    };
     function spawnCheerSquad() {
       const side = Math.random() < 0.5 ? -1 : 1;
       const g = new THREE.Group();
@@ -1545,20 +1660,20 @@
       const n = 4 + Math.floor(Math.random() * 3);
       for (let i = 0; i < n; i++) {
         const fan = new THREE.Group();
-        const body = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.24, 0.6, 10), regMat(new THREE.MeshStandardMaterial({ color: shirtColors[(i + Math.floor(Math.random() * 6)) % 6], roughness: 0.6 })));
+        const body = new THREE.Mesh(CHEER_GEO.body, cheerShirtMats[(i + Math.floor(Math.random() * 6)) % 6]);
         body.position.y = 0.55;
         fan.add(body);
-        const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), skinMat);
+        const head = new THREE.Mesh(CHEER_GEO.head, skinMat);
         head.position.y = 1.05;
         fan.add(head);
-        const armL = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.45, 6), skinMat);
+        const armL = new THREE.Mesh(CHEER_GEO.arm, skinMat);
         armL.position.set(-0.27, 1.0, 0);
         fan.add(armL);
-        const armR = armL.clone();
-        armR.position.x = 0.27;
+        const armR = new THREE.Mesh(CHEER_GEO.arm, skinMat);
+        armR.position.set(0.27, 1.0, 0);
         fan.add(armR);
         if (i % 2 === 0) {
-          const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.22), hurdleRedMat);
+          const flag = new THREE.Mesh(CHEER_GEO.flag, hurdleRedMat);
           flag.position.set(0.42, 1.42, 0);
           fan.add(flag);
         }
@@ -1567,7 +1682,8 @@
         g.add(fan);
         fans.push({ fan, armL, armR, phase: Math.random() * 6 });
       }
-      const sign = signBoard(['加油！517'], { bg: '#ffffff', fg: '#dc2626', border: '#dc2626', w: 512, h: 128 }, 1.4, 0.36, 1.2);
+      const bibNum = cleanBib(currentLook.bib) || '517';
+      const sign = signBoard(['加油！' + bibNum], { bg: '#ffffff', fg: '#dc2626', border: '#dc2626', w: 512, h: 128 }, 1.4, 0.36, 1.2);
       sign.position.set(side * 4.3, 0, 0);
       sign.rotation.y = side > 0 ? -0.6 : 0.6;
       g.add(sign);
@@ -1578,28 +1694,37 @@
         playSfx('cheer');
       });
     }
+    const TENT_GEO = {
+      table: regGeo(new THREE.BoxGeometry(1.0, 0.08, 1.6)),
+      cup: regGeo(new THREE.CylinderGeometry(0.06, 0.05, 0.14, 8)),
+      roof: regGeo(new THREE.ConeGeometry(1.3, 0.6, 4)),
+      leg: regGeo(new THREE.CylinderGeometry(0.03, 0.03, 2.1, 6))
+    };
+    const stationSignMat = regMat(new THREE.MeshStandardMaterial({
+      map: textTexture(['補給站 WATER'], { bg: '#0ea5e9', fg: '#ffffff', w: 512, h: 128 }), roughness: 0.5
+    }));
     function spawnStationTent(withSign) {
       [-1, 1].forEach((side) => {
         const g = new THREE.Group();
-        const table = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.08, 1.6), whiteMat);
+        const table = new THREE.Mesh(TENT_GEO.table, whiteMat);
         table.position.y = 0.75;
         g.add(table);
         for (let c = 0; c < 6; c++) {
-          const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.05, 0.14, 8), c % 2 ? drinkBlueMat : energyGoldMat);
+          const cup = new THREE.Mesh(TENT_GEO.cup, c % 2 ? drinkBlueMat : energyGoldMat);
           cup.position.set(-0.3 + (c % 3) * 0.3, 0.86, -0.4 + Math.floor(c / 3) * 0.8);
           g.add(cup);
         }
-        const roof = new THREE.Mesh(new THREE.ConeGeometry(1.3, 0.6, 4), side > 0 ? archBlue : archRed);
+        const roof = new THREE.Mesh(TENT_GEO.roof, side > 0 ? archBlue : archRed);
         roof.position.y = 2.35;
         roof.rotation.y = Math.PI / 4;
         g.add(roof);
         [[-0.6, -0.8], [0.6, -0.8], [-0.6, 0.8], [0.6, 0.8]].forEach(([x, z]) => {
-          const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 2.1, 6), lampPoleMat);
+          const leg = new THREE.Mesh(TENT_GEO.leg, lampPoleMat);
           leg.position.set(x, 1.05, z);
           g.add(leg);
         });
         if (withSign && side < 0) {
-          const s = signBoard(['補給站 WATER'], { bg: '#0ea5e9', fg: '#ffffff', w: 512, h: 128 }, 1.6, 0.4, 2.0);
+          const s = signBoard(null, null, 1.6, 0.4, 2.0, stationSignMat);
           s.position.set(0.4, 0, 0);
           s.rotation.y = 0.5;
           g.add(s);
@@ -1611,7 +1736,9 @@
     function spawnFinishArch() {
       const g = buildArch(2.6, 0.38, archBlue, archWhite, { text: 'FINISH 42.195K', bg: '#1d4ed8', fg: '#ffffff' });
       addProp(g);
-      for (let i = 0; i < 2; i++) setTimeout(() => { if (phase === 'running') spawnCheerSquad(); }, 300 + i * 500);
+      for (let i = 0; i < 2; i++) {
+        pendingTimers.push(setTimeout(() => { if (phase === 'running') spawnCheerSquad(); }, 300 + i * 500));
+      }
     }
 
     // ===== 14. Actions =====
@@ -1709,6 +1836,7 @@
     }
 
     function resetGame() {
+      clearPendingTimers();
       clearList(obstacles); clearList(supplies); clearList(props);
       score = 0; dodgedCount = 0; supplyCount = 0; currentLevel = 1; stageIdx = 0;
       distKm = 0; gameTime = 0; simTime = 0; lastKmSim = 0; lastKmInt = 0;
@@ -1724,6 +1852,7 @@
       isSliding = false; slideTimer = 0; slideQueued = false;
       spawnTimer = 1.6; supplyTimer = 1.8;
       runner.visible = true; bubble.visible = false;
+      themeSettled = false;
       applyTheme(STAGES[0], 1);
       levelValEl.textContent = 'Lv.1';
       stageValEl.textContent = STAGES[0].name;
@@ -1745,7 +1874,7 @@
       phase = 'running';
       setPlayUI();
       Music.start(0);
-      announce('🏁 起跑！', '目標 42.195K · 加油 #517', 1800);
+      announce('🏁 起跑！', '目標 42.195K · 加油 ' + bibLabel().trim(), 1800);
     }
 
     // ===== Player name & online leaderboard =====
@@ -2255,6 +2384,7 @@
     function onStageChange(newStage) {
       stageIdx = newStage;
       currentLevel = newStage + 1;
+      themeSettled = false;
       const th = STAGES[Math.min(newStage, STAGES.length - 1)];
       levelValEl.textContent = 'Lv.' + currentLevel;
       stageValEl.textContent = th.name;
@@ -2460,7 +2590,7 @@
             } else playSfx('dodge');
             updateComboUI();
           }
-          if (z < -16) { world.remove(ob.group); obstacles.splice(i, 1); }
+          if (z < -16) { disposeGroup(ob.group); obstacles.splice(i, 1); }
         }
         if (phase !== 'running' && phase !== 'finished') { renderer.render(scene, camera); return; }
 
@@ -2499,11 +2629,11 @@
               showBonusPopup('+' + p + ' ' + sp.label + (comboMult > 1 ? ' ×' + comboMult.toFixed(1) : ''));
               playSfx('supply');
             }
-            world.remove(sp.group);
+            disposeGroup(sp.group);
             supplies.splice(i, 1);
             continue;
           }
-          if (sp.group.position.z < -16) { world.remove(sp.group); supplies.splice(i, 1); }
+          if (sp.group.position.z < -16) { disposeGroup(sp.group); supplies.splice(i, 1); }
         }
 
         // Props
@@ -2520,7 +2650,7 @@
               f.fan.position.y = Math.max(0, w) * 0.12;
             });
           }
-          if (pr.group.position.z < -18) { world.remove(pr.group); props.splice(i, 1); }
+          if (pr.group.position.z < -18) { disposeGroup(pr.group); props.splice(i, 1); }
         }
 
         moveScenery(ds);
