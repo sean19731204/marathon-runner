@@ -128,6 +128,23 @@
         <div id="combo-badge" class="opacity-0 transition-opacity duration-200 rounded-full bg-orange-500/90 text-slate-950 px-2.5 py-0.5 text-xs font-black">×1.0 COMBO</div>
         <div id="shield-badge" class="hidden rounded-full bg-sky-400/90 text-slate-950 px-2.5 py-0.5 text-xs font-black">🛡️ 護盾</div>
       </div>
+      <!-- 42.195K Marathon Progress Bar -->
+      <div id="progress-wrap" class="max-w-md w-full bg-slate-900/75 backdrop-blur border border-slate-700/70 rounded-xl px-2.5 py-1.5 shadow">
+        <div class="flex items-center justify-between text-[10px] font-bold text-slate-300 mb-1">
+          <span id="progress-label">🏁 全馬進度</span>
+          <span id="progress-pct" class="font-mono text-sky-300">0.0%</span>
+        </div>
+        <div class="relative h-2 rounded-full bg-slate-800 overflow-visible">
+          <div id="progress-fill" class="h-full rounded-full bg-gradient-to-r from-emerald-400 via-sky-400 to-amber-400 transition-[width] duration-150" style="width:0%"></div>
+          <div id="progress-marks" class="absolute inset-0 pointer-events-none">
+            <span class="absolute top-1/2 -translate-y-1/2 w-1 h-2.5 rounded-full bg-cyan-300/80" style="left:23.7%" title="10K 補給站"></span>
+            <span class="absolute top-1/2 -translate-y-1/2 w-1 h-2.5 rounded-full bg-cyan-300/80" style="left:47.4%" title="20K 補給站"></span>
+            <span class="absolute top-1/2 -translate-y-1/2 w-1 h-2.5 rounded-full bg-cyan-300/80" style="left:71.1%" title="30K 補給站"></span>
+            <span class="absolute top-1/2 -translate-y-1/2 w-1 h-2.5 rounded-full bg-cyan-300/80" style="left:94.8%" title="40K 補給站"></span>
+          </div>
+          <span id="progress-runner" class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 text-xs leading-none drop-shadow transition-[left] duration-150" style="left:0%">🏃</span>
+        </div>
+      </div>
       <div class="flex justify-center">
         <div id="bonus-popup" class="opacity-0 transition-all duration-300 bg-cyan-500/90 text-slate-950 font-black text-sm px-3 py-1 rounded-full shadow-lg">+100</div>
       </div>
@@ -143,7 +160,7 @@
 
     <!-- Bottom hint (desktop) -->
     <div class="pointer-events-none absolute bottom-5 left-1/2 -translate-x-1/2 z-10 bg-slate-900/75 backdrop-blur border border-slate-700/70 rounded-xl px-3 py-2 text-xs text-slate-300 hidden md:block">
-      <kbd class="kbd">空白鍵</kbd>/<kbd class="kbd">↑</kbd> 跳躍（可二段跳）· <kbd class="kbd">↓</kbd>/<kbd class="kbd">S</kbd> 滑行 · 拖曳畫面旋轉視角
+      <kbd class="kbd">空白鍵</kbd>/<kbd class="kbd">↑</kbd> 跳躍（可二段跳）· <kbd class="kbd">↓</kbd>/<kbd class="kbd">S</kbd> 滑行 · <kbd class="kbd">P</kbd>/<kbd class="kbd">Esc</kbd> 暫停 · 拖曳畫面旋轉視角
     </div>
 
     <!-- Action buttons -->
@@ -292,6 +309,11 @@
     const announceEl = $('announce');
     const announceTitle = $('announce-title');
     const announceSub = $('announce-sub');
+    const progressLabel = $('progress-label');
+    const progressPct = $('progress-pct');
+    const progressFill = $('progress-fill');
+    const progressRunner = $('progress-runner');
+    const progressMarks = $('progress-marks');
     const camBtns = document.querySelectorAll('.cam-btn');
 
     // ===== Settings =====
@@ -560,14 +582,31 @@
       radiusGoal: 7.4,
       dragging: false,
       lastX: 0,
-      lastY: 0
+      lastY: 0,
+      startX: 0,
+      startY: 0,
+      swipeDone: false,
+      isTouch: false,
+      shakeTime: 0,
+      shakeAmp: 0
     };
+
+    function triggerShake(amp, dur) {
+      camState.shakeAmp = Math.max(camState.shakeAmp, amp || 0.22);
+      camState.shakeTime = Math.max(camState.shakeTime, dur || 0.28);
+    }
 
     function updateCameraImmediate() {
       const sinPhi = Math.sin(camState.phi);
+      let sx = 0, sy = 0;
+      if (camState.shakeTime > 0) {
+        const s = camState.shakeAmp * Math.min(1, camState.shakeTime * 4);
+        sx = (Math.random() - 0.5) * 2 * s;
+        sy = (Math.random() - 0.5) * 2 * s;
+      }
       camera.position.set(
-        camState.target.x + camState.radius * sinPhi * Math.sin(camState.theta),
-        camState.target.y + camState.radius * Math.cos(camState.phi),
+        camState.target.x + camState.radius * sinPhi * Math.sin(camState.theta) + sx,
+        camState.target.y + camState.radius * Math.cos(camState.phi) + sy,
         camState.target.z + camState.radius * sinPhi * Math.cos(camState.theta)
       );
       camera.lookAt(camState.target);
@@ -578,6 +617,10 @@
       camState.dragging = true;
       camState.lastX = e.clientX;
       camState.lastY = e.clientY;
+      camState.startX = e.clientX;
+      camState.startY = e.clientY;
+      camState.swipeDone = false;
+      camState.isTouch = (e.pointerType === 'touch');
     });
     window.addEventListener('pointermove', (e) => {
       if (!camState.dragging) return;
@@ -585,10 +628,21 @@
       const dy = e.clientY - camState.lastY;
       camState.lastX = e.clientX;
       camState.lastY = e.clientY;
+      if (camState.isTouch && phase === 'running' && !customizing) {
+        const tdx = e.clientX - camState.startX;
+        const tdy = e.clientY - camState.startY;
+        if (!camState.swipeDone && Math.abs(tdy) > 36 && Math.abs(tdy) > Math.abs(tdx) * 1.25) {
+          camState.swipeDone = true;
+          if (tdy < 0) triggerJump(); else triggerSlide();
+          return;
+        }
+        if (camState.swipeDone) return;
+      }
       camState.thetaGoal -= dx * 0.008;
       camState.phiGoal = Math.max(0.35, Math.min(1.62, camState.phiGoal - dy * 0.006));
     });
-    window.addEventListener('pointerup', () => { camState.dragging = false; });
+    window.addEventListener('pointerup', () => { camState.dragging = false; camState.swipeDone = false; });
+    window.addEventListener('pointercancel', () => { camState.dragging = false; camState.swipeDone = false; });
     container.addEventListener('wheel', (e) => {
       e.preventDefault();
       camState.radiusGoal = Math.max(2.6, Math.min(15, camState.radiusGoal + e.deltaY * 0.005));
@@ -1219,6 +1273,130 @@
     bubble.visible = false;
     scene.add(bubble);
 
+    // ===== 8b. Visual FX: Combo Aura, Double-Jump Ring, Zero-Alloc Particle Pool =====
+    const comboAuraMat = new THREE.MeshBasicMaterial({ color: '#fb923c', transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false });
+    const comboAura = new THREE.Mesh(regGeo(new THREE.RingGeometry(0.55, 0.82, 24)), comboAuraMat);
+    comboAura.rotation.x = -Math.PI / 2;
+    comboAura.position.y = 0.04;
+    comboAura.visible = false;
+    world.add(comboAura);
+
+    const jumpRingMat = new THREE.MeshBasicMaterial({ color: '#e0f2fe', transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false });
+    const jumpRing = new THREE.Mesh(regGeo(new THREE.RingGeometry(0.28, 0.48, 24)), jumpRingMat);
+    jumpRing.rotation.x = -Math.PI / 2;
+    jumpRing.visible = false;
+    scene.add(jumpRing);
+    let jumpRingTimer = 0;
+    function triggerJumpRing(yPos) {
+      jumpRingTimer = 0.28;
+      jumpRing.position.set(0, yPos, 0);
+      jumpRing.scale.setScalar(0.7);
+      jumpRingMat.opacity = 0.75;
+      jumpRing.visible = true;
+    }
+
+    const FX_GEO = regGeo(new THREE.BoxGeometry(0.11, 0.11, 0.11));
+    const FX_MATS = {
+      dust: new THREE.MeshBasicMaterial({ color: '#e2e8f0', transparent: true, opacity: 0.8 }),
+      drink: new THREE.MeshBasicMaterial({ color: '#38bdf8' }),
+      energy: new THREE.MeshBasicMaterial({ color: '#facc15' }),
+      shield: new THREE.MeshBasicMaterial({ color: '#7dd3fc' }),
+      hit: new THREE.MeshBasicMaterial({ color: '#f43f5e' }),
+      c1: new THREE.MeshBasicMaterial({ color: '#facc15' }),
+      c2: new THREE.MeshBasicMaterial({ color: '#ec4899' }),
+      c3: new THREE.MeshBasicMaterial({ color: '#38bdf8' }),
+      c4: new THREE.MeshBasicMaterial({ color: '#4ade80' }),
+      c5: new THREE.MeshBasicMaterial({ color: '#a855f7' })
+    };
+    const CONFETTI_KEYS = ['c1', 'c2', 'c3', 'c4', 'c5'];
+    const FX_POOL = [];
+    for (let i = 0; i < 64; i++) {
+      const m = new THREE.Mesh(FX_GEO, FX_MATS.dust);
+      m.visible = false;
+      scene.add(m);
+      FX_POOL.push({ mesh: m, life: 0, maxLife: 1, vx: 0, vy: 0, vz: 0, grav: -9.8, spin: 0 });
+    }
+    let fxCursor = 0;
+    function emitParticles(kind, x, y, z, count) {
+      for (let i = 0; i < count; i++) {
+        const p = FX_POOL[fxCursor];
+        fxCursor = (fxCursor + 1) % FX_POOL.length;
+        p.mesh.visible = true;
+        p.mesh.position.set(x + (Math.random() - 0.5) * 0.35, y + Math.random() * 0.2, z + (Math.random() - 0.5) * 0.35);
+        p.mesh.rotation.set(Math.random() * 6, Math.random() * 6, Math.random() * 6);
+        if (kind === 'confetti') {
+          p.mesh.material = FX_MATS[CONFETTI_KEYS[i % CONFETTI_KEYS.length]];
+          p.mesh.scale.set(1.2, 0.35, 1.8);
+          p.vx = (Math.random() - 0.5) * 6.5;
+          p.vy = 4.0 + Math.random() * 4.5;
+          p.vz = (Math.random() - 0.5) * 5.0;
+          p.grav = -5.5;
+          p.maxLife = 1.3 + Math.random() * 0.7;
+          p.spin = 8;
+        } else if (kind === 'dust') {
+          p.mesh.material = FX_MATS.dust;
+          p.mesh.scale.setScalar(0.75 + Math.random() * 0.5);
+          p.vx = (Math.random() - 0.5) * 1.8;
+          p.vy = 0.6 + Math.random() * 1.4;
+          p.vz = -1.5 - Math.random() * 2.0;
+          p.grav = -4.5;
+          p.maxLife = 0.28 + Math.random() * 0.16;
+          p.spin = 4;
+        } else {
+          p.mesh.material = FX_MATS[kind] || FX_MATS.energy;
+          p.mesh.scale.setScalar(0.85 + Math.random() * 0.65);
+          const ang = Math.random() * Math.PI * 2;
+          const spd = 1.6 + Math.random() * 2.8;
+          p.vx = Math.cos(ang) * spd;
+          p.vy = 1.4 + Math.random() * 3.0;
+          p.vz = Math.sin(ang) * spd;
+          p.grav = -9.5;
+          p.maxLife = 0.42 + Math.random() * 0.22;
+          p.spin = 10;
+        }
+        p.life = p.maxLife;
+      }
+    }
+    function clearParticles() {
+      for (let i = 0; i < FX_POOL.length; i++) { FX_POOL[i].life = 0; FX_POOL[i].mesh.visible = false; }
+      jumpRingTimer = 0; jumpRing.visible = false;
+      comboAura.visible = false;
+    }
+    function updateFX(dt) {
+      for (let i = 0; i < FX_POOL.length; i++) {
+        const p = FX_POOL[i];
+        if (p.life <= 0) continue;
+        p.life -= dt;
+        if (p.life <= 0) { p.mesh.visible = false; continue; }
+        p.vy += p.grav * dt;
+        p.mesh.position.x += p.vx * dt;
+        p.mesh.position.y = Math.max(0.03, p.mesh.position.y + p.vy * dt);
+        p.mesh.position.z += p.vz * dt;
+        p.mesh.rotation.x += p.spin * dt;
+        p.mesh.rotation.y += p.spin * 0.8 * dt;
+        const k = p.life / p.maxLife;
+        if (p.grav > -6 && p.maxLife > 1.0) p.mesh.scale.set(1.2 * k, 0.35 * k, 1.8 * k);
+        else p.mesh.scale.setScalar(Math.max(0.05, k));
+      }
+      if (jumpRingTimer > 0) {
+        jumpRingTimer -= dt;
+        const k = 1 - Math.max(0, jumpRingTimer) / 0.28;
+        jumpRing.scale.setScalar(0.7 + k * 2.1);
+        jumpRingMat.opacity = 0.75 * (1 - k);
+        if (jumpRingTimer <= 0) jumpRing.visible = false;
+      }
+      if (phase === 'running' && comboMult >= 2) {
+        comboAura.visible = true;
+        comboAura.rotation.z += dt * (comboMult >= 3 ? 4.5 : 2.5);
+        const pulse = 1 + Math.sin(clockTime * 10) * (comboMult >= 3 ? 0.14 : 0.08);
+        comboAura.scale.setScalar(pulse);
+        comboAuraMat.color.set(comboMult >= 3 ? '#f43f5e' : '#fb923c');
+        comboAuraMat.opacity = comboMult >= 3 ? 0.65 : 0.42;
+      } else {
+        comboAura.visible = false;
+      }
+    }
+
     // ===== 9. Stage themes (visual) =====
     const STAGES = [
       { name: '起跑區',     icon: '🏁', sky: '#bde5f8', fog: '#d8f0e4', fogD: 0.024, hemiS: '#e0f2fe', hemiG: '#94a3b8', hemiI: 0.9,  sun: '#fffbeb', sunI: 1.25, grass: '#7da442', tree: '#ffffff', road: '#ffffff', bldg: 0,   riverV: 0, lampV: 0,   starV: 0,   bokeh: '#fef9c3' },
@@ -1307,7 +1485,8 @@
     // Jump / slide physics
     let jumpY = 0, jumpVel = 0, isGrounded = true, jumpCount = 0;
     let isSliding = false, slideTimer = 0, slideQueued = false;
-    const MAX_JUMPS = 2, JUMP_FORCE = 9.4, GRAVITY = -25.0, SLIDE_TIME = 0.6;
+    let jumpBufferTimer = 0, slideDustTimer = 0;
+    const MAX_JUMPS = 2, JUMP_FORCE = 9.4, GRAVITY = -25.0, SLIDE_TIME = 0.6, JUMP_BUFFER = 0.14;
 
     const obstacles = [];
     const supplies = [];
@@ -1741,21 +1920,56 @@
       }
     }
 
+    function updateProgressUI() {
+      if (ultraMode) {
+        const subPct = ((distKm - MARATHON) % 10) / 10 * 100;
+        progressLabel.textContent = '🔥 超馬挑戰（每 10K 循環）';
+        progressPct.textContent = distKm.toFixed(1) + 'K';
+        progressFill.className = 'h-full rounded-full bg-gradient-to-r from-fuchsia-500 via-purple-500 to-amber-400 transition-[width] duration-150';
+        progressFill.style.width = subPct.toFixed(1) + '%';
+        progressRunner.style.left = subPct.toFixed(1) + '%';
+        progressMarks.classList.add('hidden');
+      } else {
+        const pct = Math.min(100, (distKm / MARATHON) * 100);
+        progressLabel.textContent = '🏁 全馬進度';
+        progressPct.textContent = pct.toFixed(1) + '%';
+        progressFill.className = 'h-full rounded-full bg-gradient-to-r from-emerald-400 via-sky-400 to-amber-400 transition-[width] duration-150';
+        progressFill.style.width = pct.toFixed(1) + '%';
+        progressRunner.style.left = pct.toFixed(1) + '%';
+        progressMarks.classList.remove('hidden');
+      }
+    }
+
     // ===== 14. Actions =====
+    function executeJump() {
+      const isDouble = jumpCount > 0;
+      jumpVel = isDouble ? JUMP_FORCE * 0.9 : JUMP_FORCE;
+      isGrounded = false;
+      jumpCount += 1;
+      jumpBufferTimer = 0;
+      playSfx('jump');
+      if (isDouble) {
+        triggerJumpRing(jumpY + 0.15);
+        emitParticles('shield', 0, jumpY + 0.15, 0, 8);
+      } else {
+        emitParticles('dust', 0, 0.08, -0.1, 7);
+      }
+    }
     function triggerJump() {
       if (phase !== 'running') return;
       if (isSliding) { isSliding = false; slideTimer = 0; }
       slideQueued = false;
       if (isGrounded || jumpCount < MAX_JUMPS) {
-        jumpVel = jumpCount === 0 ? JUMP_FORCE : JUMP_FORCE * 0.9;
-        isGrounded = false;
-        jumpCount += 1;
-        playSfx('jump');
+        executeJump();
+      } else {
+        jumpBufferTimer = JUMP_BUFFER;
       }
     }
     function startSlide() {
       isSliding = true;
       slideTimer = SLIDE_TIME;
+      slideDustTimer = 0;
+      emitParticles('dust', 0, 0.1, -0.25, 6);
       playSfx('slide');
     }
     function triggerSlide() {
@@ -1792,6 +2006,8 @@
       setPlayUI();
       playSfx('hit');
       Music.jingle('over');
+      emitParticles('hit', 0, hipGroup.position.y + 0.3, 0, 18);
+      triggerShake(0.32, 0.35);
       const msgs = checkRecords();
       $('final-score').textContent = Math.floor(score);
       $('final-dist').textContent = distKm.toFixed(2) + 'K';
@@ -1812,6 +2028,8 @@
       setPlayUI();
       Music.jingle('finish');
       playSfx('levelup');
+      emitParticles('confetti', 0, 2.2, 0.5, 42);
+      updateProgressUI();
       const msgs = checkRecords();
       if (bestTime === 0 || finishSim < bestTime) { bestTime = finishSim; saveRec(REC.time, finishSim); msgs.push('最佳完賽時間'); }
       refreshRecordsUI();
@@ -1850,6 +2068,9 @@
       kmSignSpawned = 0;
       jumpY = 0; jumpVel = 0; isGrounded = true; jumpCount = 0;
       isSliding = false; slideTimer = 0; slideQueued = false;
+      jumpBufferTimer = 0; slideDustTimer = 0;
+      camState.shakeTime = 0; camState.shakeAmp = 0;
+      clearParticles();
       spawnTimer = 1.6; supplyTimer = 1.8;
       runner.visible = true; bubble.visible = false;
       themeSettled = false;
@@ -1860,7 +2081,7 @@
       distValEl.textContent = '0.00';
       timeValEl.textContent = fmtTime(0);
       shieldBadge.classList.add('hidden');
-      updateComboUI(); updateSlopeUI();
+      updateComboUI(); updateSlopeUI(); updateProgressUI();
       gameoverOverlay.classList.add('hidden');
       finishOverlay.classList.add('hidden');
     }
@@ -2320,9 +2541,30 @@
       } else if (k === 'ArrowDown' || k === 'KeyS') {
         e.preventDefault();
         triggerSlide();
+      } else if ((k === 'KeyP' || k === 'Escape') && (phase === 'running' || phase === 'paused')) {
+        e.preventDefault();
+        togglePause();
       } else if (k === 'Enter' && (phase === 'ready' || phase === 'over')) {
         if (phase === 'ready') onStartClick(); else startRun();
       }
+    });
+
+    function togglePause(forcePause) {
+      if (phase === 'running') {
+        phase = 'paused';
+        Music.stop();
+        setPlayUI();
+        announce('⏸️ 已暫停', '按 P / Esc 或點上方「已暫停」繼續', 2400);
+      } else if (!forcePause && phase === 'paused') {
+        phase = 'running';
+        if (isMusicOn) Music.start(Music.songIdx);
+        setPlayUI();
+        announce('▶ 繼續跑！', '', 900);
+      }
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && phase === 'running') togglePause(true);
     });
 
     speedSlider.addEventListener('input', (e) => {
@@ -2330,11 +2572,7 @@
       speedVal.textContent = animSpeed.toFixed(1) + 'x';
     });
 
-    btnPlay.addEventListener('click', () => {
-      if (phase === 'running') { phase = 'paused'; Music.stop(); }
-      else if (phase === 'paused') { phase = 'running'; if (isMusicOn) Music.start(Music.songIdx); }
-      setPlayUI();
-    });
+    btnPlay.addEventListener('click', () => { togglePause(false); });
     btnMusic.addEventListener('click', () => { ensureAudio(); setMusicOn(!isMusicOn); });
     btnSfx.addEventListener('click', () => setSfxOn(!isSfxOn));
 
@@ -2475,6 +2713,10 @@
 
       // Camera damping (auto-rotate while choosing an outfit)
       if (customizing) camState.thetaGoal += dt * 0.45;
+      if (camState.shakeTime > 0) {
+        camState.shakeTime = Math.max(0, camState.shakeTime - dt);
+        if (camState.shakeTime === 0) camState.shakeAmp = 0;
+      }
       camState.theta += (camState.thetaGoal - camState.theta) * 0.1;
       camState.phi += (camState.phiGoal - camState.phi) * 0.1;
       camState.radius += (camState.radiusGoal - camState.radius) * 0.1;
@@ -2512,16 +2754,21 @@
         }
 
         // Jump / slide physics
+        if (jumpBufferTimer > 0) jumpBufferTimer = Math.max(0, jumpBufferTimer - dt);
         if (!isGrounded) {
           jumpY += jumpVel * dt;
           jumpVel += GRAVITY * dt;
           if (jumpY <= 0) {
             jumpY = 0; jumpVel = 0; isGrounded = true; jumpCount = 0;
+            emitParticles('dust', 0, 0.06, 0, 6);
             if (slideQueued) { slideQueued = false; startSlide(); }
+            else if (jumpBufferTimer > 0) { executeJump(); }
           }
         }
         if (isSliding) {
           slideTimer -= dt;
+          slideDustTimer -= dt;
+          if (slideDustTimer <= 0) { slideDustTimer = 0.08; emitParticles('dust', 0, 0.08, -0.3, 2); }
           if (slideTimer <= 0) isSliding = false;
         }
         if (invulnTimer > 0) {
@@ -2568,6 +2815,8 @@
                 comboStreak = 0; comboMult = 1; updateComboUI();
                 shieldBadge.classList.add('hidden');
                 bubble.userData.burst = 0.4;
+                emitParticles('shield', 0, hipGroup.position.y + 0.4, 0, 16);
+                triggerShake(0.22, 0.28);
                 showBonusPopup('🛡️ 護盾擋下了！連擊歸零', 'bg-sky-400/90 text-slate-950');
                 playSfx('shieldbreak');
               } else {
@@ -2621,11 +2870,13 @@
             if (sp.kind === 'shield') {
               hasShield = true;
               shieldBadge.classList.remove('hidden');
+              emitParticles('shield', 0, sp.baseY, 0, 14);
               showBonusPopup('🛡️ 取得護盾！', 'bg-sky-400/90 text-slate-950');
               playSfx('shield');
             } else {
               const p = addPoints(sp.points);
               supplyCount += 1;
+              emitParticles(sp.points >= 150 ? 'energy' : 'drink', 0, sp.baseY, 0, 12);
               showBonusPopup('+' + p + ' ' + sp.label + (comboMult > 1 ? ' ×' + comboMult.toFixed(1) : ''));
               playSfx('supply');
             }
@@ -2665,49 +2916,63 @@
           scoreValEl.textContent = Math.floor(score);
           distValEl.textContent = distKm.toFixed(2);
           timeValEl.textContent = fmtTime(simTime);
+          updateProgressUI();
         }
       } else if (phase === 'ready') {
         clockTime += dt * 0.55;
       }
 
-      // ===== Runner pose =====
+      // ===== Runner pose (smooth transitions) =====
       const cycle = clockTime * 6.5;
       const stride = Math.sin(cycle);
       const strideOpp = Math.sin(cycle + Math.PI);
       const lean = hillState === 'up' ? 0.22 : hillState === 'down' ? -0.08 : 0;
+      const pBlend = 1 - Math.exp(-18 * dt);
+      const lerpP = (cur, tgt) => cur + (tgt - cur) * pBlend;
+
+      let tHipY, tTorsoX, tTorsoY, tHeadY;
+      let tRaX, tRaZ, tReX, tReZ, tLaX, tLaZ, tLeX, tLeZ;
+      let tRlH, tRlK, tLlH, tLlK;
 
       if (isSliding) {
-        hipGroup.position.y = 0.46;
-        torsoGroup.rotation.x = -0.95;
-        torsoGroup.rotation.y = 0;
-        headGroup.rotation.y = 0;
-        rightArm.shoulder.rotation.x = -0.9; rightArm.shoulder.rotation.z = -0.6; rightArm.elbow.rotation.x = -0.3;
-        leftArm.shoulder.rotation.x = -0.9; leftArm.shoulder.rotation.z = 0.6; leftArm.elbow.rotation.x = -0.3;
-        rightLeg.hip.rotation.x = -1.35; rightLeg.knee.rotation.x = 0.15;
-        leftLeg.hip.rotation.x = -1.1; leftLeg.knee.rotation.x = 0.55;
+        tHipY = 0.46; tTorsoX = -0.95; tTorsoY = 0; tHeadY = 0;
+        tRaX = -0.9; tRaZ = -0.6; tReX = -0.3; tReZ = 0;
+        tLaX = -0.9; tLaZ = 0.6; tLeX = -0.3; tLeZ = 0;
+        tRlH = -1.35; tRlK = 0.15; tLlH = -1.1; tLlK = 0.55;
       } else if (!isGrounded) {
-        hipGroup.position.y = 0.92 + jumpY;
-        torsoGroup.rotation.x = 0.14;
-        torsoGroup.rotation.y = 0;
-        headGroup.rotation.y = 0;
-        rightArm.shoulder.rotation.x = -2.1; rightArm.shoulder.rotation.z = -0.35; rightArm.elbow.rotation.x = -0.5;
-        leftArm.shoulder.rotation.x = -2.1; leftArm.shoulder.rotation.z = 0.35; leftArm.elbow.rotation.x = -0.5;
-        rightLeg.hip.rotation.x = -0.65; rightLeg.knee.rotation.x = 1.05;
-        leftLeg.hip.rotation.x = -0.45; leftLeg.knee.rotation.x = 0.95;
+        tHipY = 0.92 + jumpY; tTorsoX = 0.14; tTorsoY = 0; tHeadY = 0;
+        tRaX = -2.1; tRaZ = -0.35; tReX = -0.5; tReZ = 0;
+        tLaX = -2.1; tLaZ = 0.35; tLeX = -0.5; tLeZ = 0;
+        tRlH = -0.65; tRlK = 1.05; tLlH = -0.45; tLlK = 0.95;
       } else {
-        hipGroup.position.y = 0.92 + Math.abs(Math.sin(cycle)) * 0.10;
-        torsoGroup.rotation.x = 0.08 + lean + Math.cos(cycle * 2) * 0.02;
-        torsoGroup.rotation.y = stride * 0.08;
-        headGroup.rotation.y = -stride * 0.06;
-        rightArm.shoulder.rotation.x = stride * 0.65 - 0.15; rightArm.shoulder.rotation.z = -0.22;
-        rightArm.elbow.rotation.x = -1.35 + stride * 0.15; rightArm.elbow.rotation.z = 0.25;
-        leftArm.shoulder.rotation.x = strideOpp * 0.65 - 0.15; leftArm.shoulder.rotation.z = 0.22;
-        leftArm.elbow.rotation.x = -1.35 + strideOpp * 0.15; leftArm.elbow.rotation.z = -0.25;
-        rightLeg.hip.rotation.x = strideOpp * 0.58 - 0.1;
-        rightLeg.knee.rotation.x = Math.max(0.08, Math.sin(cycle + 0.8) * 0.95 + 0.45);
-        leftLeg.hip.rotation.x = stride * 0.58 - 0.1;
-        leftLeg.knee.rotation.x = Math.max(0.08, Math.sin(cycle + Math.PI + 0.8) * 0.95 + 0.45);
+        tHipY = 0.92 + Math.abs(Math.sin(cycle)) * 0.10;
+        tTorsoX = 0.08 + lean + Math.cos(cycle * 2) * 0.02;
+        tTorsoY = stride * 0.08;
+        tHeadY = -stride * 0.06;
+        tRaX = stride * 0.65 - 0.15; tRaZ = -0.22; tReX = -1.35 + stride * 0.15; tReZ = 0.25;
+        tLaX = strideOpp * 0.65 - 0.15; tLaZ = 0.22; tLeX = -1.35 + strideOpp * 0.15; tLeZ = -0.25;
+        tRlH = strideOpp * 0.58 - 0.1; tRlK = Math.max(0.08, Math.sin(cycle + 0.8) * 0.95 + 0.45);
+        tLlH = stride * 0.58 - 0.1; tLlK = Math.max(0.08, Math.sin(cycle + Math.PI + 0.8) * 0.95 + 0.45);
       }
+
+      hipGroup.position.y = !isGrounded ? tHipY : lerpP(hipGroup.position.y, tHipY);
+      torsoGroup.rotation.x = lerpP(torsoGroup.rotation.x, tTorsoX);
+      torsoGroup.rotation.y = lerpP(torsoGroup.rotation.y, tTorsoY);
+      headGroup.rotation.y = lerpP(headGroup.rotation.y, tHeadY);
+      rightArm.shoulder.rotation.x = lerpP(rightArm.shoulder.rotation.x, tRaX);
+      rightArm.shoulder.rotation.z = lerpP(rightArm.shoulder.rotation.z, tRaZ);
+      rightArm.elbow.rotation.x = lerpP(rightArm.elbow.rotation.x, tReX);
+      rightArm.elbow.rotation.z = lerpP(rightArm.elbow.rotation.z, tReZ);
+      leftArm.shoulder.rotation.x = lerpP(leftArm.shoulder.rotation.x, tLaX);
+      leftArm.shoulder.rotation.z = lerpP(leftArm.shoulder.rotation.z, tLaZ);
+      leftArm.elbow.rotation.x = lerpP(leftArm.elbow.rotation.x, tLeX);
+      leftArm.elbow.rotation.z = lerpP(leftArm.elbow.rotation.z, tLeZ);
+      rightLeg.hip.rotation.x = lerpP(rightLeg.hip.rotation.x, tRlH);
+      rightLeg.knee.rotation.x = lerpP(rightLeg.knee.rotation.x, tRlK);
+      leftLeg.hip.rotation.x = lerpP(leftLeg.hip.rotation.x, tLlH);
+      leftLeg.knee.rotation.x = lerpP(leftLeg.knee.rotation.x, tLlK);
+
+      updateFX(dt);
 
       updateHairSway(cycle, !isGrounded);
       const shadowScale = Math.max(0.35, (1.0 - Math.abs(Math.sin(cycle)) * 0.12) * (1.0 - jumpY * 0.28));
