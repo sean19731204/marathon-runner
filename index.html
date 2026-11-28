@@ -1673,8 +1673,8 @@
       $('final-supply').textContent = supplyCount;
       $('final-combo').textContent = maxCombo;
       $('over-sub').textContent = ultraMode
-        ? playerName + ' 的超馬挑戰結束（已完成全馬）'
-        : playerName + ' 在 ' + distKm.toFixed(1) + 'K 倒下了…';
+        ? bibLabel() + playerName + ' 的超馬挑戰結束（已完成全馬）'
+        : bibLabel() + playerName + ' 在 ' + distKm.toFixed(1) + 'K 倒下了…';
       $('over-records').textContent = msgs.length ? '🎉 刷新個人紀錄：' + msgs.join('、') : '';
       gameoverOverlay.classList.remove('hidden');
       submitToLeaderboard('over-lb', { finished: ultraMode, time: ultraMode ? lastFinishSim : simTime });
@@ -1692,7 +1692,7 @@
       $('finish-score').textContent = Math.floor(score);
       $('finish-pace').textContent = fmtPace(finishSim / MARATHON);
       $('finish-records').textContent = msgs.length ? '🎉 刷新個人紀錄：' + msgs.join('、') : '';
-      $('finish-sub').textContent = playerName + ' · 42.195K';
+      $('finish-sub').textContent = bibLabel() + playerName + ' · 42.195K';
       finishOverlay.classList.remove('hidden');
       lastFinishSim = finishSim;
       submitToLeaderboard('finish-lb', { finished: true, time: finishSim });
@@ -1774,6 +1774,24 @@
     }
     nameInput.addEventListener('input', () => nameError.classList.add('hidden'));
 
+    let paintedBib = '517';
+    function cleanBib(v) { return String(v || '').replace(/\D/g, '').slice(0, 5).replace(/^0+(?=\d)/, ''); }
+    function paintBibNumber(num) {
+      num = cleanBib(num) || '517';
+      if (num === paintedBib) return;
+      paintedBib = num;
+      const tex = bibMat.map, c = tex.image, ctx = c.getContext('2d');
+      ctx.fillStyle = '#fde047';
+      ctx.fillRect(16, 121, 480, 124);
+      ctx.fillStyle = '#1d4ed8';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      let size = 128;
+      do { ctx.font = '900 ' + size + 'px Inter, sans-serif'; size -= 4; } while (ctx.measureText(num).width > 440 && size > 48);
+      ctx.fillText(num, 256, 232);
+      tex.needsUpdate = true;
+    }
+    function bibLabel() { return '#' + (cleanBib(currentLook.bib) || '517') + ' '; }
     function paintBibName(name) {
       const tex = bibMat.map, c = tex.image, ctx = c.getContext('2d');
       ctx.fillStyle = '#fde047';
@@ -1839,7 +1857,7 @@
 
     // ===== Runner customization (per player, saved on this device) =====
     const LOOK_KEY = 'marathon_517_looks';
-    const LOOK_DEFAULT = { gender: 'm', skin: '#f7cba8', hair: 'short', hairColor: '#1e293b', hat: 'white', glasses: 'white', outfit: 'taiwan', shorts: '#1e2f63', shoes: '#22c55e' };
+    const LOOK_DEFAULT = { gender: 'm', skin: '#f7cba8', hair: 'short', hairColor: '#1e293b', hat: 'white', glasses: 'white', outfit: 'taiwan', shorts: '#1e2f63', shoes: '#22c55e', bib: '517' };
     const LOOK_OPTIONS = [
       { key: 'gender', label: '性別', type: 'chip', items: [['m', '男'], ['f', '女']] },
       { key: 'skin', label: '膚色', type: 'color', items: ['#f7cba8', '#e0ac7e', '#b87a4b', '#8a5a3b'] },
@@ -1955,6 +1973,7 @@
     function applyLook(cfg) {
       cfg = Object.assign({}, LOOK_DEFAULT, cfg || {});
       currentLook = cfg;
+      paintBibNumber(cfg.bib);
       const female = cfg.gender === 'f';
       skinMat.color.set(cfg.skin);
       hairMat.color.set(cfg.hairColor);
@@ -2028,7 +2047,11 @@
     let customizing = false, customMode = 'edit', draftLook = null;
 
     function renderCustomOptions() {
-      let html = '';
+      let html = '<div><div class="text-xs font-bold text-slate-400 mb-1">背號（1～5 位數字）</div>'
+        + '<div class="flex items-center gap-2"><span class="text-lg font-black text-sky-300">#</span>'
+        + '<input id="bib-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="5" value="' + (cleanBib(draftLook.bib) || '') + '" placeholder="517" '
+        + 'class="w-28 rounded-lg bg-yellow-300 text-blue-700 font-black text-xl text-center font-mono px-2 py-1 border-2 border-slate-600 focus:border-emerald-400 focus:outline-none" />'
+        + '<button data-bib-rand="1" class="px-2.5 py-1.5 rounded-lg text-xs font-bold border bg-slate-800 text-slate-200 border-slate-600">🎲 隨機號碼</button></div></div>';
       LOOK_OPTIONS.forEach((opt) => {
         html += '<div><div class="text-xs font-bold text-slate-400 mb-1">' + opt.label + '</div><div class="flex flex-wrap gap-1.5">';
         opt.items.forEach((it) => {
@@ -2046,7 +2069,20 @@
       });
       customOptions.innerHTML = html;
     }
+    customOptions.addEventListener('input', (e) => {
+      if (e.target.id !== 'bib-input') return;
+      const v = cleanBib(e.target.value);
+      if (e.target.value !== v) e.target.value = v;
+      draftLook.bib = v || '517';
+      paintBibNumber(draftLook.bib);
+    });
     customOptions.addEventListener('click', (e) => {
+      if (e.target.closest('button[data-bib-rand]')) {
+        draftLook.bib = String(1 + Math.floor(Math.random() * 9999));
+        $('bib-input').value = draftLook.bib;
+        paintBibNumber(draftLook.bib);
+        return;
+      }
       const b = e.target.closest('button[data-k]');
       if (!b) return;
       const k = b.dataset.k, v = b.dataset.v;
@@ -2063,6 +2099,7 @@
         const it = opt.items[Math.floor(Math.random() * opt.items.length)];
         draftLook[opt.key] = opt.type === 'color' ? it : it[0];
       });
+      draftLook.bib = String(1 + Math.floor(Math.random() * 9999));
       applyLook(draftLook);
       renderCustomOptions();
     });
@@ -2141,7 +2178,7 @@
 
     window.addEventListener('keydown', (e) => {
       if (e.target && e.target.tagName === 'INPUT' && e.target.type === 'text') {
-        if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); onStartClick(); }
+        if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); if (!customizing) onStartClick(); }
         return;
       }
       if (customizing) return;
